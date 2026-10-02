@@ -25,6 +25,8 @@
   .tools { display: flex; gap: 4px; margin-left: auto; }
   main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 0; }
   #stage { position: relative; aspect-ratio: 16 / 9; width: 100%; background: var(--graphite); }
+  #stage.phone { width: auto; height: min(84vh, 1100px); margin: 12px auto; }
+  #wrap { background: var(--ink); }
   #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #busy { position: absolute; inset: auto 16px 16px auto; font: 500 12px "JetBrains Mono", monospace; color: var(--atlas-gold); background: var(--ink); padding: 6px 10px; }
   #notes { padding: 20px; border-left: 1px solid var(--graphite); overflow: auto; }
@@ -38,6 +40,12 @@
   .err { color: var(--signal-red); }
   .sw { display: flex; flex-wrap: wrap; gap: 6px 12px; font: 400 12px "JetBrains Mono", monospace; }
   .sw i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 1px solid var(--stone); vertical-align: -1px; }
+  .audit { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.4; }
+  .audit th { text-align: left; font: 500 10px "JetBrains Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--stone); padding: 4px 6px 4px 0; }
+  .audit td { vertical-align: top; padding: 5px 6px 5px 0; border-top: 1px solid var(--graphite); }
+  .pass { color: var(--signal-pass); margin: 8px 0 0; }
+  .prop { color: var(--atlas-gold); font-size: 12px; }
+  button:disabled { opacity: .35; cursor: default; }
   footer { padding: 12px 20px; border-top: 1px solid var(--graphite); color: var(--stone); font-size: 12px; }
   @media (max-width: 1000px) { main { grid-template-columns: 1fr; } #notes { border-left: 0; border-top: 1px solid var(--graphite); } .tools { margin-left: 0; } }
 </style>
@@ -55,16 +63,20 @@
   <div class="tools">
     <button id="prev" title="Previous (←)">←</button>
     <button id="next" title="Next (→)">→</button>
+    <button id="tierHigh" title="High tier (production, §10.1)">High</button>
+    <button id="tierMid" title="Mid tier: no bloom, no mirror, fewer buildings (§10.1)">Mid</button>
+    <button id="vpDesk" title="Desktop 2560×1440">Desktop</button>
+    <button id="vpPhone" title="Phone 390×844 (SF-03, SF-07, SF-07b, G2-4)">Phone</button>
     <button id="copy" class="on" title="Toggle on-screen copy (C)">Copy</button>
     <button id="export" title="Export this frame as PNG (E)">Export PNG</button>
     <button id="exportAll" title="Export every frame">Export all</button>
   </div>
 </header>
 <main>
-  <div id="stage"><canvas id="gl"></canvas><canvas id="ov"></canvas><div id="busy">Rendering…</div></div>
+  <div id="wrap"><div id="stage"><canvas id="gl"></canvas><canvas id="ov"></canvas><div id="busy">Rendering…</div></div></div>
   <aside id="notes"></aside>
 </main>
-<footer>Rendered live in three.js from protocol v1.3 · palette tokens only · copy is drawn as text (it is DOM text in production, §10.2) · 2560×1440</footer>
+<footer>Rendered live in three.js from protocol v1.4 · palette tokens only · selective bloom on --atlas-gold-hot and --lantern only · 2% paper-fibre grain, no vignette · copy is drawn as text (DOM text in production, §10.2) · 2560×1440 desktop, 390×844 phone</footer>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

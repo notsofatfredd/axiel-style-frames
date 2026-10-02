@@ -3,7 +3,7 @@
  * §2.3: soft warm key from top-left, ambient paper bounce, no fog, emboss + fibre texture.
  * Lighting is calibrated so flat paper at frame centre renders at the --paper token.
  */
-import { THREE, HEX, col, NOISE } from './core.js';
+import { THREE, HEX, col, NOISE, BLOOM_ONLY } from './core.js';
 
 export function makeSheet(texW, texH, worldW, worldH) {
   const mk = () => { const c = document.createElement('canvas'); c.width = texW; c.height = texH; return c; };
@@ -68,11 +68,11 @@ export function paperMesh(sh, o = {}) {
       uKeyDir: { value: KEY_DIR }, uKeyCol: { value: KEY_COL.clone().multiplyScalar(o.key ?? 0.92) },
       uAmb: { value: new THREE.Color(1, 1, 1).multiplyScalar(o.amb ?? 0.42) },
       uEmiC: { value: o.emisCol ?? col('hot', 3) }, uBump: { value: o.bump ?? 1.6 },
-      uAspect: { value: sh.worldW / sh.worldH },
+      uAspect: { value: sh.worldW / sh.worldH }, uBloomOnly: BLOOM_ONLY,
     },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */`
-      uniform sampler2D uCol, uHgt, uEmi; uniform vec2 uTexel; uniform vec3 uKeyDir, uKeyCol, uAmb, uEmiC; uniform float uBump, uAspect;
+      uniform sampler2D uCol, uHgt, uEmi; uniform vec2 uTexel; uniform vec3 uKeyDir, uKeyCol, uAmb, uEmiC; uniform float uBump, uAspect, uBloomOnly;
       varying vec2 vUv;
       ${NOISE}
       void main(){
@@ -85,9 +85,11 @@ export function paperMesh(sh, o = {}) {
         float ndl = max(dot(n, uKeyDir), 0.0);
         float fall = 1.0 - 0.18 * length((vUv - vec2(0.15, 0.95)) * vec2(uAspect * 0.6, 1.0));
         vec3 c = alb * (uAmb + uKeyCol * ndl * fall);
-        c += texture2D(uEmi, vUv).rgb * uEmiC;
-        gl_FragColor = vec4(c, 1.0);
+        vec3 e = texture2D(uEmi, vUv).rgb * uEmiC;
+        c += e;
+        gl_FragColor = vec4(uBloomOnly > 0.5 ? e : c, 1.0);
       }`,
   });
-  return new THREE.Mesh(new THREE.PlaneGeometry(sh.worldW, sh.worldH), mat);
+  mat.userData.bloomPart = true; // only the crack / beneath-light emissive blooms (--atlas-gold-hot)
+  return new THREE.Mesh(new THREE.PlaneGeometry(sh.worldW, sh.worldH, o.segX ?? 1, o.segY ?? 1), mat);
 }

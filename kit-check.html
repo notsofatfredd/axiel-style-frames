@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kit Check</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0B0B0C; --graphite:#1D1D1F; --bone:#D6D2C8; --red:#C2412D; }
+  body { margin: 0; background: var(--ink); color: var(--bone); padding: 20px 16px; font: 400 12px/1.6 "JetBrains Mono", monospace; }
+  pre { white-space: pre-wrap; background: var(--graphite); padding: 12px; }
+  .err { color: var(--red); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<pre id="out">Building kits…</pre>
+<script type="module">
+/* Headless build + shader-compile check for every world kit. Numbers only; not a visual review. */
+import { THREE, col, makeCamera } from './js/core.js';
+import { makeStrata } from './js/kit/strata.js';
+import { makeCity, makeGround, makeFaultBuilding, stainDecal, plots, LAYOUT } from './js/kit/city.js';
+import { makeCartographer } from './js/kit/cartographer.js';
+import { makeCore, makeFixKit } from './js/kit/livingcore.js';
+import { makeSeal, makeTag, makeString } from './js/kit/seal.js';
+
+const errors = [];
+const origErr = console.error.bind(console);
+console.error = (...a) => { errors.push(a.map(String).join(' ').slice(0, 600)); origErr(...a); };
+window.addEventListener('error', e => errors.push(String(e.message)));
+const res = { ok: false, kits: {}, errors };
+window.__kits = res;
+
+const tris = (root) => {
+  let t = 0, calls = 0;
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const g = o.geometry, n = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+    const mats = Array.isArray(o.material) ? Math.max(1, g.groups.length) : 1;
+    t += n * (o.isInstancedMesh ? o.count : 1); calls += mats;
+  });
+  return { tris: Math.round(t), calls };
+};
+
+const R = new THREE.WebGLRenderer({ antialias: false });
+R.setSize(96, 54, false);
+R.shadowMap.enabled = true;
+await document.fonts.ready;
+
+async function check(name, build, camArgs) {
+  const t0 = performance.now();
+  try {
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(col('bone'), col('ink'), 1));
+    const d = new THREE.DirectionalLight(col('bone'), 2); d.position.set(-3, 6, 4); d.castShadow = true; scene.add(d);
+    const root = await build(scene);
+    if (root) scene.add(root);
+    const cam = makeCamera(...camArgs);
+    R.compile(scene, cam);
+    R.render(scene, cam);
+    const gl = R.getContext(), e = gl.getError();
+    res.kits[name] = { ...tris(scene), ms: Math.round(performance.now() - t0), glError: e, programs: R.info.programs.length };
+  } catch (e) {
+    res.kits[name] = { fail: String(e && e.stack || e).slice(0, 800) };
+  }
+}
+
+await check('strata', async () => makeStrata({ vein: 1, carveGlow: 1 }), [74, [0, -22, -2.5], [0, -22, -6]]);
+await check('city', async (s) => { s.add(makeGround({})); return makeCity({ tier: 'high' }); }, [54, [-6, 8, -40], [8, 20, -70]]);
+await check('city-mid', async () => makeCity({ tier: 'mid' }), [54, [-6, 8, -40], [8, 20, -70]]);
+await check('fault-empty', async () => makeFaultBuilding({ state: 'empty' }), [54, [-6, 2.4, -28], [6, 6, -44]]);
+await check('fault-repaired', async () => makeFaultBuilding({ state: 'repaired', wet: true, cardGlow: 1, hiGlow: 1 }), [54, [6, 5, -27], [4, 6, -39]]);
+await check('stain', async () => stainDecal({ seed: 2, w: 3, h: 2 }), [40, [4, 8, -9], [4, 11, -39]]);
+await check('cartographer', async (s) => {
+  const rig = await makeCartographer({ pose: 'raise_lantern' });
+  rig.root.position.set(1.8, 0, -34.6); rig.pose('raise_lantern');
+  rig.aim(new THREE.Vector3(4, 4, -39), { raised: true });
+  s.add(rig.spot, rig.spot.target, rig.beam);
+  res.cartoTris = rig.tris();
+  return rig.root;
+}, [54, [-6, 2.4, -28], [6, 6, -44]]);
+await check('core-asleep', async () => makeCore({ state: 'asleep' }), [54, [24, 26, -82], [10, 24, -92]]);
+await check('core-awake', async () => makeCore({ state: 'awake' }), [54, [10, 26, -104], [10, 24, -92]]);
+await check('fixkit', async () => makeFixKit({}), [54, [10, 26, -104], [10, 24, -92]]);
+await check('seal', async () => makeSeal({}), [40, [0, 0, 10], [0, 0, 0]]);
+await check('tag', async () => makeTag({}), [40, [0, 0, 10], [0, 0, 0]]);
+await check('string', async () => makeString([-1, 0], [-3, 0.5]), [40, [0, 0, 10], [0, 0, 0]]);
+
+const P = plots();
+res.plots = { n: P.length, neighbour: P.filter(p => p.role === 'neighbour').length, far: P.filter(p => p.far).length,
+  overlapFault: P.filter(p => p.x0 < LAYOUT.fault.x1 && p.x1 > LAYOUT.fault.x0 && p.z1 < LAYOUT.fault.z0 && p.z0 > LAYOUT.fault.z1).length };
+res.ok = errors.length === 0 && Object.values(res.kits).every(k => !k.fail);
+document.getElementById('out').textContent = JSON.stringify(res, null, 2);
+if (!res.ok) document.getElementById('out').className = 'err';
+</script>
+</body>
+</html>
