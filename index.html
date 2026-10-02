@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AXIEL Style Frames</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0B0B0C; --graphite: #1D1D1F; --stone: #6A675F; --bone: #D6D2C8; --paper: #F2EFE9;
+    --atlas-gold: #C9A35B; --atlas-gold-hot: #F0C878; --lantern: #E8A54B; --night: #0E1520;
+    --rain: #8FA6B8; --signal-red: #C2412D; --signal-pass: #9FC2A0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--ink); color: var(--bone); font: 400 14px/1.5 Montserrat, sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 20px; border-bottom: 1px solid var(--graphite); }
+  header h1 { margin: 0; font-weight: 300; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; }
+  header h1 b { font-weight: 500; color: var(--atlas-gold); }
+  #tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+  button { font: 500 12px/1 "JetBrains Mono", monospace; letter-spacing: .04em; color: var(--bone); background: var(--graphite); border: 1px solid var(--graphite); padding: 8px 10px; cursor: pointer; }
+  button:hover { border-color: var(--stone); }
+  button.on { background: var(--bone); color: var(--ink); border-color: var(--bone); }
+  .tools { display: flex; gap: 4px; margin-left: auto; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 0; }
+  #stage { position: relative; aspect-ratio: 16 / 9; width: 100%; background: var(--graphite); }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #busy { position: absolute; inset: auto 16px 16px auto; font: 500 12px "JetBrains Mono", monospace; color: var(--atlas-gold); background: var(--ink); padding: 6px 10px; }
+  #notes { padding: 20px; border-left: 1px solid var(--graphite); overflow: auto; }
+  #notes h2 { margin: 0; font: 500 18px "JetBrains Mono", monospace; }
+  #notes h2 span { font: 300 18px Montserrat, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--atlas-gold); margin-left: 8px; }
+  .moment { margin: 4px 0 16px; color: var(--paper); }
+  dl { margin: 0; } dt { margin-top: 14px; font: 500 11px "JetBrains Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--stone); }
+  dd { margin: 4px 0 0; } dd ul { margin: 0; padding-left: 16px; } dd li { margin-bottom: 6px; }
+  .mono { font: 400 12px "JetBrains Mono", monospace; }
+  .none { margin: 0; color: var(--stone); }
+  .err { color: var(--signal-red); }
+  .sw { display: flex; flex-wrap: wrap; gap: 6px 12px; font: 400 12px "JetBrains Mono", monospace; }
+  .sw i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 1px solid var(--stone); vertical-align: -1px; }
+  footer { padding: 12px 20px; border-top: 1px solid var(--graphite); color: var(--stone); font-size: 12px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } #notes { border-left: 0; border-top: 1px solid var(--graphite); } .tools { margin-left: 0; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<header>
+  <h1><b>AXIEL</b> · Gate G2 style frames</h1>
+  <nav id="tabs"></nav>
+  <div class="tools">
+    <button id="prev" title="Previous (←)">←</button>
+    <button id="next" title="Next (→)">→</button>
+    <button id="copy" class="on" title="Toggle on-screen copy (C)">Copy</button>
+    <button id="export" title="Export this frame as PNG (E)">Export PNG</button>
+    <button id="exportAll" title="Export every frame">Export all</button>
+  </div>
+</header>
+<main>
+  <div id="stage"><canvas id="gl"></canvas><canvas id="ov"></canvas><div id="busy">Rendering…</div></div>
+  <aside id="notes"></aside>
+</main>
+<footer>Rendered live in three.js from protocol v1.3 · palette tokens only · copy is drawn as text (it is DOM text in production, §10.2) · 2560×1440</footer>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

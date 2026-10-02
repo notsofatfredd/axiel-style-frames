@@ -1,0 +1,7 @@
+# internal protocol docs never go in this repo
+*Protocol*.md
+*Signoff*.md
+docs/
+.playwright-mcp/
+*.png
+!assets/*.png
