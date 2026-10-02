@@ -19,6 +19,12 @@ export async function buildChasm(renderer, o = {}) {
   b.position.set(0, -10, 10); b.target.position.set(0, -24, -6);
   scene.add(b, b.target);
   scene.add(new THREE.HemisphereLight(col('bone'), col('ink'), PI * 0.012));
+  // lit veins: their glow on the surrounding stone, as real light (bloom alone left the stone at 4/255 without it)
+  if (o.veinFill) {
+    const v = new THREE.DirectionalLight(col('hot'), PI * o.veinFill);
+    v.position.set(0, -20, 4); v.target.position.set(0, -22, -6);
+    scene.add(v, v.target);
+  }
   return { scene, strata };
 }
 

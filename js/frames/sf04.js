@@ -3,10 +3,13 @@ import { makeCity, makeGround, makeFaultBuilding } from '../kit/city.js';
 import { makeCartographer } from '../kit/cartographer.js';
 import { bakeRig, PI } from './util.js';
 
-/* Night street lighting shared by INDEX and Proof: night-sky hemisphere + a dim cold moon (no shadow) */
+/* Night street lighting shared by INDEX and Proof: night-sky hemisphere + a dim cold moon (no shadow).
+   The sky colour is already dark and Neutral tone mapping squares everything under ~0.03 linear, so the strength
+   sits higher than it looks: at 0.85 / 0.2 the façades land near the --night sky value instead of crushing to
+   black (66% of SF-04 measured ≤ 4/255 at 0.22 / 0.05). The lantern-lit areas are unchanged. */
 export function nightLights(scene, o = {}) {
-  scene.add(new THREE.HemisphereLight(mixc('night', 'rain', 0.35), col('ink'), PI * (o.sky ?? 0.22)));
-  const moon = new THREE.DirectionalLight(mixc('rain', 'bone', 0.3), PI * (o.moon ?? 0.05));
+  scene.add(new THREE.HemisphereLight(mixc('night', 'rain', 0.35), col('ink'), PI * (o.sky ?? 0.85)));
+  const moon = new THREE.DirectionalLight(mixc('rain', 'bone', 0.3), PI * (o.moon ?? 0.2));
   moon.position.set(-30, 50, 10); moon.target.position.set(0, 0, -40);
   scene.add(moon, moon.target);
 }
@@ -26,7 +29,8 @@ export async function placeCartographer(scene, at, face, target, o = {}) {
 export default {
   id: 'SF-04', scene: 'INDEX', moment: 'The Cartographer raises the lantern. The beam lights a row of website buildings; the fault building shows an empty display window and a blank nameplate by the door', p: '0.36',
   key: 'K8', cam: 'Beam sweep, buildings light',
-  bloom: [0.8, 0.5, 0.5], clear: HEX.night,
+  // threshold 0: the bloom source is already lantern-only (panes measured ≈ 0.63, a 0.5 cut left almost nothing)
+  bloom: [0.8, 0.5, 0], clear: HEX.night,
   light: 'Lantern spot (--lantern, 21°, soft shadow) and the lantern\'s own point light are the key. Night moonlight fill (night-sky hemisphere, dim cold moon, no shadow). Dense blue fog in --night. Only the lantern panes and flame bloom.',
   tokens: ['night', 'ink', 'graphite', 'stone', 'bone', 'paper', 'lantern', 'gold', 'rain'],
   proposed: [

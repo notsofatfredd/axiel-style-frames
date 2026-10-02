@@ -25,6 +25,9 @@ const VIEWPORTS = {
   desktop: { name: 'desktop', W: 2560, H: 1440, u: 2560 / 1440, phone: false, css: '1440×810' },
   phone: { name: 'phone', W: 1170, H: 2532, u: 3, phone: true, css: '390×844' },
 };
+/* ?check=1: low-memory check mode. Same scenes at 1/4 size and 1/4 paper textures. Draw calls and triangles do not change; pixels are not deliverables. */
+const CHECK = new URLSearchParams(location.search).get('check') === '1';
+if (CHECK) { for (const v of Object.values(VIEWPORTS)) { v.W = Math.round(v.W / 4); v.H = Math.round(v.H / 4); v.u /= 4; v.check = true; } window.__texScale = 0.25; }
 const BUDGET = { desktop: { calls: 150, tris: 500000 }, phone: { calls: 80, tris: 150000 } }; // §7.2
 
 const qs = new URLSearchParams(location.search);
@@ -112,10 +115,12 @@ const GrainShader = {
       gl_FragColor = vec4(mix(c.rgb, overlay(c.rgb, g), uOpacity), 1.0); }`,
 };
 const MixShader = {
-  uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, uOn: { value: 1 } },
+  uniforms: { tDiffuse: { value: null }, tBloom: { value: null }, uOn: { value: 1 }, uDbg: { value: new URLSearchParams(location.search).get('debug') === 'bloom' ? 1 : 0 } },
   vertexShader: GrainShader.vertexShader,
-  fragmentShader: `uniform sampler2D tDiffuse, tBloom; uniform float uOn; varying vec2 vUv;
-    void main(){ gl_FragColor = texture2D(tDiffuse, vUv) + uOn * vec4(texture2D(tBloom, vUv).rgb, 0.0); }`,
+  // ?debug=bloom shows the bloom layer alone (a check, not a deliverable)
+  fragmentShader: `uniform sampler2D tDiffuse, tBloom; uniform float uOn, uDbg; varying vec2 vUv;
+    void main(){ vec4 b = vec4(texture2D(tBloom, vUv).rgb, 0.0);
+      gl_FragColor = uDbg > 0.5 ? vec4(b.rgb, 1.0) : texture2D(tDiffuse, vUv) + uOn * b; }`,
 };
 
 const BLACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); BLACK.needsUpdate = true;
@@ -258,7 +263,7 @@ async function go(i) {
   const st = { sceneCalls, calls, tris, buildMs, renderMs, bloom: bloomOn ? f.bloom.join(' / ') : 'off' };
   renderNotes(f, st);
   busy.hidden = true;
-  const qp = new URLSearchParams({ ...(state.tier === 'mid' ? { tier: 'mid' } : {}), ...(state.vp === 'phone' ? { vp: 'phone' } : {}) }).toString();
+  const qp = new URLSearchParams({ ...(state.tier === 'mid' ? { tier: 'mid' } : {}), ...(state.vp === 'phone' ? { vp: 'phone' } : {}), ...(CHECK ? { check: '1' } : {}), ...(qs.get('debug') ? { debug: qs.get('debug') } : {}) }).toString();
   history.replaceState(null, '', (qp ? '?' + qp : location.pathname) + '#' + f.id.toLowerCase());
   document.title = `${f.id} ${f.scene} · AXIEL Style Frames`;
   window.__frame = { id: f.id, ok: true, tier: state.tier, vp: state.vp, ...st, key: built.camera.userData.key };

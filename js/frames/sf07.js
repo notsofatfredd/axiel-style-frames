@@ -11,7 +11,8 @@ export default {
   id: 'SF-07', scene: 'Proof', moment: 'The repaired building lit in the beam, with the share card in its window read up close, the description highlighted', p: '0.85',
   key: 'K17', cam: 'Repaired window read up close',
   phone: true,
-  bloom: [0.6, 0.45, 0.55], clear: HEX.night,
+  // threshold 0: the source is already hot/lantern-only; the highlight (≈ 0.37) never cleared a 0.55 cut
+  bloom: [0.6, 0.45, 0], clear: HEX.night,
   light: 'The lantern beam is the key, on the repaired window (the Cartographer stands out of frame to the left). Night moonlight fill. Fog thinning. The highlighted description and the lantern bloom.',
   tokens: ['night', 'ink', 'graphite', 'stone', 'bone', 'paper', 'gold', 'hot', 'lantern'],
   proposed: [
@@ -37,7 +38,7 @@ export default {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(HEX.night, 0.012);
     scene.environment = tokenEnv(renderer, [col('night', 1.4), col('night'), col('ink')]);
-    nightLights(scene, { sky: 0.2 });
+    nightLights(scene, { sky: 0.8 });
     scene.add(makeGround({ wet: true }));
     scene.add(makeCity({ tier, lit: 0.55, wet: 1 }));
     scene.add(await makeFaultBuilding({ state: 'repaired', wet: true, cardGlow: 0.26, hiGlow: 1.0 }));

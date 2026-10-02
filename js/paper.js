@@ -6,6 +6,7 @@
 import { THREE, HEX, col, NOISE, BLOOM_ONLY } from './core.js';
 
 export function makeSheet(texW, texH, worldW, worldH) {
+  const ts = window.__texScale ?? 1; texW = Math.round(texW * ts); texH = Math.round(texH * ts); // check mode only
   const mk = () => { const c = document.createElement('canvas'); c.width = texW; c.height = texH; return c; };
   const color = mk(), height = mk(), emis = mk();
   const cc = color.getContext('2d'), hc = height.getContext('2d'), ec = emis.getContext('2d');
