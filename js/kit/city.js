@@ -309,6 +309,13 @@ export const glsl = (c) => `vec3(${c.r.toFixed(5)}, ${c.g.toFixed(5)}, ${c.b.toF
 
 const box = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
 function plane(w, h, x, y, z) { return new THREE.PlaneGeometry(w, h).translate(x, y, z); }
+/* a box without its +z face (sides join the shared trim mesh; the face is its own textured plane) */
+function sidesBox(w, h, d, x, y, z) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  const idx = Array.from(g.index.array); idx.splice(24, 6);
+  g.setIndex(idx); g.clearGroups();
+  return g.translate(x, y, z);
+}
 
 /*
  * The fault building (§3.2): shop archetype, 10 × 10 × 22, front face z = −39.
@@ -354,7 +361,7 @@ export async function makeFaultBuilding(o = {}) {
   tg.push(box(FB.x1 - FB.x0 + 0.4, 0.3, 0.3, (FB.x0 + FB.x1) / 2, FB.h - 0.15, FB.z + 0.12));
   tg.push(box(W.x1 - W.x0 + 0.3, 0.14, 0.3, (W.x0 + W.x1) / 2, W.y0 - 0.07, FB.z + 0.12)); // sill
   for (const [cx, cy, ww] of upper) tg.push(box(ww + 0.16, 0.08, 0.14, cx, cy - 0.69, FB.z + 0.05));
-  g.add(new THREE.Mesh(mergeGeometries(tg), trim));
+  // (tg stays open: the tab, fascia and nameplate sides join it; the trim mesh is added at the end)
 
   // nav band: three real tabs, carved with the live nav (SYSTEMS · R&D · INTRODUCTION)
   const navH = FB.navY[1] - FB.navY[0];
@@ -363,13 +370,14 @@ export async function makeFaultBuilding(o = {}) {
   refs.nav = [];
   for (let i = 0; i < 3; i++) {
     const m = inlayMat(labelMask(tabW[i], navH, [{ t: SITE.nav[i], cap: 0.3, y: navH / 2 + 0.15 }]), { inlay: 'bone', carve: 0.3 });
-    const tab = new THREE.Mesh(new THREE.BoxGeometry(tabW[i], navH, 0.28), [trim, trim, trim, trim, m, trim]);
-    tab.position.set(tx + tabW[i] / 2, (FB.navY[0] + FB.navY[1]) / 2, FB.z + 0.14);
+    const cx = tx + tabW[i] / 2, cy = (FB.navY[0] + FB.navY[1]) / 2;
+    tg.push(sidesBox(tabW[i], navH, 0.28, cx, cy, FB.z + 0.14));
+    const tab = new THREE.Mesh(plane(tabW[i], navH, cx, cy, FB.z + 0.28), m);
     g.add(tab); refs.nav.push(tab);
     tx += tabW[i] + gap;
   }
   // blank band continuation (stone) to the right of the tabs
-  g.add(new THREE.Mesh(box(FB.x1 - 0.3 - tx, navH, 0.16, (tx + FB.x1 - 0.3) / 2, (FB.navY[0] + FB.navY[1]) / 2, FB.z + 0.08), trim));
+  tg.push(box(FB.x1 - 0.3 - tx, navH, 0.16, (tx + FB.x1 - 0.3) / 2, (FB.navY[0] + FB.navY[1]) / 2, FB.z + 0.08));
 
   // fascia sign above the entrance: the meta title + description (present, not a fault)
   const F = FB.fascia, fw = F.x1 - F.x0, fh = F.y1 - F.y0;
@@ -378,8 +386,8 @@ export async function makeFaultBuilding(o = {}) {
     { t: SITE.description, cap: 0.1, y: 0.7, w: 400, track: 0.02 },
   ], { ppu: 260 });
   const fasciaMat = inlayMat(signMask, { k: 'graphite', inlay: 'bone', carve: 0.2 });
-  const fascia = new THREE.Mesh(new THREE.BoxGeometry(fw, fh, 0.18), [trim, trim, trim, trim, fasciaMat, trim]);
-  fascia.position.set((F.x0 + F.x1) / 2, (F.y0 + F.y1) / 2, FB.z + 0.09);
+  tg.push(sidesBox(fw, fh, 0.18, (F.x0 + F.x1) / 2, (F.y0 + F.y1) / 2, FB.z + 0.09));
+  const fascia = new THREE.Mesh(plane(fw, fh, (F.x0 + F.x1) / 2, (F.y0 + F.y1) / 2, FB.z + 0.18), fasciaMat);
   g.add(fascia);
 
   // glass in every upper opening (dark, reflective)
@@ -391,13 +399,13 @@ export async function makeFaultBuilding(o = {}) {
   const brass = detailMat({ color: col('gold'), roughness: 0.32, metalness: 1 }, { scale: 6, vary: 0.08, bump: 0.002 });
   g.add(new THREE.Mesh(box(0.05, 0.5, 0.06, D.x0 + 0.18, 1.3, FB.z - 0.26), brass));
   // threshold step
-  g.add(new THREE.Mesh(box(D.x1 - D.x0 + 0.4, 0.12, 0.6, (D.x0 + D.x1) / 2, 0.06, FB.z + 0.2), trim));
+  tg.push(box(D.x1 - D.x0 + 0.4, 0.12, 0.6, (D.x0 + D.x1) / 2, 0.06, FB.z + 0.2));
 
   // display window: recess back, display ledge, glass, frame
   const wcx = (W.x0 + W.x1) / 2, wcy = (W.y0 + W.y1) / 2, ww = W.x1 - W.x0, wh = W.y1 - W.y0;
   const plaster = detailMat({ color: col('bone', state === 'empty' ? 0.55 : 0.8), roughness: 0.95 }, { scale: 5, vary: 0.12, bump: 0.004 });
   g.add(new THREE.Mesh(plane(ww, wh, wcx, wcy, FB.z - 0.39), plaster));
-  g.add(new THREE.Mesh(box(ww, 0.08, 0.36, wcx, W.y0 + 0.04, FB.z - 0.2), trim)); // empty ledge
+  tg.push(box(ww, 0.08, 0.36, wcx, W.y0 + 0.04, FB.z - 0.2)); // display ledge
   if (state === 'repaired') {
     const card = await shareCardCanvas();
     const ct = canvasTex(card.color, true), ht = canvasTex(card.hi, false);
@@ -419,10 +427,8 @@ export async function makeFaultBuilding(o = {}) {
     refs.gild = gl;
   } else {
     // empty: plain stone reveal moulding only
-    g.add(new THREE.Mesh(mergeGeometries([
-      box(ww + 0.24, 0.12, 0.1, wcx, W.y1 + 0.06, FB.z + 0.05),
-      box(0.12, wh, 0.1, W.x0 - 0.06, wcy, FB.z + 0.05), box(0.12, wh, 0.1, W.x1 + 0.06, wcy, FB.z + 0.05),
-    ]), trim));
+    tg.push(box(ww + 0.24, 0.12, 0.1, wcx, W.y1 + 0.06, FB.z + 0.05),
+      box(0.12, wh, 0.1, W.x0 - 0.06, wcy, FB.z + 0.05), box(0.12, wh, 0.1, W.x1 + 0.06, wcy, FB.z + 0.05));
   }
   const glass = new THREE.MeshPhysicalMaterial({ color: col('bone'), roughness: state === 'empty' ? 0.3 : 0.04, transparent: true, opacity: state === 'empty' ? 0.22 : 0.1, clearcoat: 1, clearcoatRoughness: state === 'empty' ? 0.4 : 0.03, depthWrite: false, envMapIntensity: 1.2 });
   const pane = new THREE.Mesh(plane(ww, wh, wcx, wcy, FB.z - 0.06), glass);
@@ -435,8 +441,8 @@ export async function makeFaultBuilding(o = {}) {
   const pm = state === 'repaired' ? inlayMat(nameplateCanvas(true), { k: 'graphite', inlay: 'gold', carve: 0.18 })
     : inlayMat(nameplateCanvas(false), { k: 'stone', inlay: 'none', carve: 0.1 });
   if (state !== 'repaired') pm.color.copy(col('bone', 0.62));
-  const plate = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.08), [trim, trim, trim, trim, pm, trim]);
-  plate.position.set((P.x0 + P.x1) / 2, (P.y0 + P.y1) / 2, FB.z + 0.04);
+  tg.push(sidesBox(pw, ph, 0.08, (P.x0 + P.x1) / 2, (P.y0 + P.y1) / 2, FB.z + 0.04));
+  const plate = new THREE.Mesh(plane(pw, ph, (P.x0 + P.x1) / 2, (P.y0 + P.y1) / 2, FB.z + 0.08), pm);
   g.add(plate);
   refs.plate = plate;
 
@@ -451,7 +457,8 @@ export async function makeFaultBuilding(o = {}) {
   steps.push(box(2.4, 0.2, 1.4, FB.x0 - 1.2, FB.ground - 0.1, FB.zb + 3.2 + 14 * 0.42 + 0.7));      // top landing
   // stringer walls under the flights
   steps.push(box(0.16, FB.ground / 2, 6.2, FB.x0 - 2.4, FB.ground / 4, FB.z - 3.9));
-  g.add(new THREE.Mesh(mergeGeometries(steps), trim));
+  // every stone trim piece (cornices, sills, tab / fascia / plate sides, stair) in one mesh
+  g.add(new THREE.Mesh(mergeGeometries([...tg, ...steps].map(x => (x.index ? x.toNonIndexed() : x))), trim));
 
   g.traverse(m => { if (m.isMesh) { m.castShadow = !m.material.transparent; m.receiveShadow = true; } });
   g.userData.refs = refs;

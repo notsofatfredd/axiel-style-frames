@@ -1,105 +1,137 @@
-import { THREE, HEX, col, v3, makeCamera, groundMat, buildingMat, cityMesh, streetCity, glowMat, glowSprite, setFont, textC } from '../core.js';
+import { THREE, HEX, col, rng, makeCamera, tokenEnv, setFont, wrap, sceneCopy, sceneCounter, TAU } from '../core.js';
+import { makeSheet, fibres, paperMesh } from '../paper.js';
+import { makeCity, makeGround, makeFaultBuilding, SITE, FB } from '../kit/city.js';
+import { nightLights, placeCartographer } from './sf04.js';
+import { PI } from './util.js';
 
-/* PROPOSED triangle (locked at G4). The protocol's system positions are nearly collinear,
- * so the circuit is laid out as an upright triangle centred on K17's look-at (0, 0, −40).
- * INDEX (find) bottom-left → DEVOS (build) apex → AMOS (verify) bottom-right → back to INDEX. */
-const CEN = { x: 0, z: -40 }, R = 36, LIFT = 32;
-const V = [210, 90, 330].map(d => d * Math.PI / 180).map(a => ({ x: CEN.x + R * Math.cos(a), z: CEN.z - R * Math.sin(a) }));
-const VCOL = ['lantern', 'hot', 'rain']; // INDEX, DEVOS, AMOS
+const CLOSING = 'Found by INDEX. Built by DEVOS. Checked by AMOS. All of it on ATLAS.';
 
-function build() {
-  const scene = new THREE.Scene();
-  const fogD = 0.0042, fogC = col('ink');
-  const tri = V.map(p => new THREE.Vector2(p.x, p.z));
-  const triCol = VCOL.map(k => col(k, 0.9));
-  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), groundMat({
-    base: col('ink'), line: col('gold'), node: col('hot'), iMinor: 0.04, iMajor: 0.3, iNode: 0.5, pulse: 1.6, time: 9.2, minorFade: 70,
-    fogCol: fogC, fogD, tri, triCol, triProg: 3,
-  })));
-  scene.add(cityMesh(streetCity(), buildingMat({
-    albedo: col('stone', 0.55), ambient: col('night', 5), top: col('night', 4), rim: col('night', 0.3),
-    winWarm: col('lantern', 1.9), winCold: col('bone', 0.08), winGold: col('hot', 2), litBase: 0.42, litNear: 0,
-    fogCol: fogC, fogD, tri, triCol,
-  })));
-
-  // the circuit: lifted above the roofs so it reads whole from the air
-  const P = V.map(p => v3(p.x, LIFT, p.z));
-  for (let i = 0; i < 3; i++) {
-    const a = P[i], b = P[(i + 1) % 3], ca = col(VCOL[i]), cb = col(VCOL[(i + 1) % 3]);
-    const curve = new THREE.LineCurve3(a, b);
-    for (const [rad, k] of [[0.18, 3.2], [0.9, 0.22]]) {
-      const geo = new THREE.TubeGeometry(curve, 64, rad, 10);
-      const pos = geo.attributes.position, cols = new Float32Array(pos.count * 3), cc = new THREE.Color();
-      const ab = b.clone().sub(a), L2 = ab.lengthSq();
-      for (let j = 0; j < pos.count; j++) {
-        const t = THREE.MathUtils.clamp(v3(pos.getX(j), pos.getY(j), pos.getZ(j)).sub(a).dot(ab) / L2, 0, 1);
-        cc.copy(ca).lerp(cb, t).multiplyScalar(k);
-        cols.set([cc.r, cc.g, cc.b], j * 3);
-      }
-      geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-      scene.add(new THREE.Mesh(geo, glowMat(new THREE.Color(1, 1, 1), { vertexColors: true, fogD })));
-    }
-  }
-  // system pillars + beacons
-  V.forEach((p, i) => {
-    const c = col(VCOL[i]);
-    const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1, 10, 1, true), glowMat(c.clone().multiplyScalar(1.6), { head: 1, fogD }));
-    pil.scale.y = LIFT;
-    pil.position.set(p.x, LIFT / 2, p.z);
-    scene.add(pil);
-    const top = glowSprite(c.clone().multiplyScalar(2.2), 9); top.position.set(p.x, LIFT, p.z); scene.add(top);
-    const core = glowSprite(c.clone().multiplyScalar(3), 2.4); core.position.set(p.x, LIFT, p.z); scene.add(core);
-    const base = glowSprite(c.clone().multiplyScalar(1.2), 12); base.position.set(p.x, 0.5, p.z); scene.add(base);
-  });
-  // closure flare: the last edge (AMOS → INDEX) has just landed
-  const fl = glowSprite(col('hot', 1.4), 22); fl.position.copy(P[0]); scene.add(fl);
-  return scene;
-}
-
-function overlay(ctx, W, H) {
-  const s = H / 1440;
-  ctx.save();
-  ctx.shadowColor = 'rgba(11,11,12,0.7)'; ctx.shadowBlur = 24 * s;
-  ctx.fillStyle = HEX.bone; ctx.textBaseline = 'alphabetic';
-  setFont(ctx, 300, 64 * s);
-  textC(ctx, 'Find. Build. Verify.', W / 2, H * 0.86, 64 * s);
-  // D5 / G1-P2: ATLAS credit in the pull-back, links to /atlas
-  setFont(ctx, 400, 20 * s, 'Montserrat', 0.08);
-  ctx.textAlign = 'right';
-  const t = 'Everything stands on ATLAS.', x = W - W * 0.04, y = H - H * 0.05;
-  ctx.fillStyle = HEX.gold;
-  ctx.fillText(t, x, y);
-  const w = ctx.measureText(t).width;
-  ctx.shadowBlur = 0;
-  ctx.fillRect(x - w, y + 10 * s, w - 20 * s * 0.08, Math.max(1, 1 * s));
-  ctx.restore();
-}
-
-const common = {
-  scene: 'Loop', bloom: [0.9, 0.6, 0.25], clear: HEX.ink,
-  light: 'All three light colours present (--lantern INDEX, --atlas-gold-hot DEVOS, --rain AMOS). Fog thinning. City lights brightened (0.80).',
-  tokens: ['ink', 'night', 'stone', 'gold', 'hot', 'lantern', 'rain', 'bone'],
-  unknown: [],
-  overlay,
-};
-
+/* ---------- SF-07 · K17 · the repaired window read up close ---------- */
 export default {
-  ...common,
-  id: 'SF-07', moment: 'Aerial view, light circuit forming the AXIEL triangle', p: '0.85–0.90',
-  key: 'K17', cam: '(0, 80, 20) → look (0, 0, −40) · FOV 74',
+  id: 'SF-07', scene: 'Proof', moment: 'The repaired building lit in the beam, with the share card in its window read up close, the description highlighted', p: '0.85',
+  key: 'K17', cam: 'Repaired window read up close',
+  phone: true,
+  bloom: [0.6, 0.45, 0.55], clear: HEX.night,
+  light: 'The lantern beam is the key, on the repaired window (the Cartographer stands out of frame to the left). Night moonlight fill. Fog thinning. The highlighted description and the lantern bloom.',
+  tokens: ['night', 'ink', 'graphite', 'stone', 'bone', 'paper', 'gold', 'hot', 'lantern'],
   proposed: [
-    'Triangle layout: upright, circumradius 36, centred on (0, −40). INDEX bottom-left, DEVOS apex, AMOS bottom-right. The protocol positions are nearly collinear, so this is locked at G4.',
-    'Circuit lifted to y = 32 (above the tallest roof) so it reads whole from the air. Its light also lands on the ground and the buildings beneath.',
-    'Shown at the moment the circuit closes (0.90) from the K17 camera, so the "Find. Build. Verify." line and the triangle can be approved together.',
-    'ATLAS credit bottom-right as a gold underlined link (D5 / G1-P2).',
+    'K17 itself (protocol marks it PROPOSED).',
+    'Share card in the window: the real title and description, with the AXIEL symbol standing in for the og:image (cap 0.25).',
+    'Description highlighted in --atlas-gold-hot.',
+    'The façade still wet from the AMOS rain (continuity from SF-06).',
+    'Cartographer at (−1.5, 0, −33), out of frame left, beam on the window.',
+    'Phone key: K17 backed off along its axis to distance 14.5, camera (6.37, 4.81, −24.75).',
   ],
-  build() { return { scene: build(), camera: makeCamera(74, [0, 80, 20], [0, 0, -40]) }; },
+  unknown: [
+    'Card legibility: cap 0.25 reads ≈ 16px at 1440×810 and ≈ 18px at 1440×900 (the §7 test size); phone ≈ 14.3px. Both meet the minimum only at their test sizes.',
+    'The real og:image is not made yet (G2-1 says the fix supplies it).',
+  ],
+  audit: [
+    ['Share card in the window', 'The proof: the missing preview now exists', 'Real title + description of axiel.co.za (G2-1)'],
+    ['Highlighted description', 'Points at what was fixed', '--atlas-gold-hot, the DEVOS gold'],
+    ['Gilded frame + gold-leaf nameplate', 'Both faults repaired', 'The fix kit\'s gold leaf (SF-05)'],
+    ['Lantern beam', 'INDEX comes back to look', 'The Cartographer\'s lantern'],
+    ['Wet stone', 'It has been through the AMOS check', 'Rain from SF-06'],
+  ],
+  async build({ renderer, tier, vp }) {
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(HEX.night, 0.012);
+    scene.environment = tokenEnv(renderer, [col('night', 1.4), col('night'), col('ink')]);
+    nightLights(scene, { sky: 0.2 });
+    scene.add(makeGround({ wet: true }));
+    scene.add(makeCity({ tier, lit: 0.55, wet: 1 }));
+    scene.add(await makeFaultBuilding({ state: 'repaired', wet: true, cardGlow: 0.26, hiGlow: 1.0 }));
+    const win = [(FB.win.x0 + FB.win.x1) / 2, (FB.win.y0 + FB.win.y1) / 2, FB.z];
+    await placeCartographer(scene, [-1.5, 0, -33], [win[0], win[2]], win, { shadowMap: tier === 'mid' ? 1024 : 2048, aim: { intensity: 340 } });
+    const camera = vp.phone
+      ? makeCamera(54, [6.37, 4.81, -24.75], [4, 6, -39])
+      : makeCamera(54, [6, 5, -27], [4, 6, -39]);
+    return { scene, camera, camNote: vp.phone ? 'Phone: K17 backed off along its axis to distance 14.5 (PROPOSED).' : null };
+  },
+  overlay(ctx, vp) { sceneCounter(ctx, vp, 7, 'PROOF', HEX.bone); },
 };
+
+/* ---------- SF-07b · K18 · the ranked result printed on the back of the paper wall ---------- */
+const SHEET = { w: 34, h: 20, cy: 4 };
+const BLOCK = { x: 0, y: 6, w: 8, h: 6 };   // PROPOSED: 8 × 6 (protocol: 16 × 6, too wide for a phone frame)
+const TEAR_R = 3;
+
+function tearOutline(r) {
+  const pts = [], n = 180;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU;
+    const rr = TEAR_R * (1 + 0.06 * Math.sin(a * 3 + 1) + 0.04 * Math.sin(a * 7 + 2)) + (r() - 0.5) * 0.09;
+    pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+  }
+  return pts;
+}
 
 export const alt = {
-  ...common,
-  id: 'SF-07b', moment: 'Alt: triangle complete from above (K18)', p: '0.90',
-  key: 'K18', cam: '(0, 160, 0) → look (0, 0, −0.01) · FOV 74',
-  proposed: ['Alternative framing for the §11.2 OG image (SF-07 aerial triangle). Same scene as SF-07.'],
-  build() { return { scene: build(), camera: makeCamera(74, [0, 160, 0], [0, 0, -0.01]) }; },
+  id: 'SF-07b', scene: 'Proof', moment: 'The ranked result printed on the back of the paper wall around the tear', p: '0.90',
+  key: 'K18', cam: 'Face the back of the paper wall',
+  phone: true,
+  tone: THREE.NoToneMapping, bloom: null, clear: HEX.night,
+  light: 'The paper wall\'s back face lit bone (same calibrated paper light as SF-01, from the top-left). Daylight through the tear in --paper. Night street lip in the foreground, moonlight fill. No bloom.',
+  tokens: ['bone', 'paper', 'ink', 'stone', 'graphite', 'night', 'rain'],
+  proposed: [
+    'K18 itself (protocol marks it PROPOSED).',
+    'Printed result block 8 × 6 centred at (0, 6), above the tear (protocol says 16 × 6; 8 wide fits a phone).',
+    'Result layout: rank and query, URL in mono, title (cap 0.34), description (cap 0.29). Printed in --ink on the bone back face.',
+    'Phone key: K18 backed off to (0, 5, −17.5) so the 8-wide block fits 390 wide.',
+    'Closing line set as the scene copy.',
+  ],
+  unknown: ['Rank number and query (M5): shown as "No. [rank]" and "[query]" until supplied.'],
+  audit: [
+    ['Printed result', 'The proof in search: AXIEL ranked, with its real title and description', 'axiel.co.za meta, verbatim (title PROPOSED per G2-9)'],
+    ['Back of the paper wall', 'We are underneath the surface, looking at the result from the inside', 'The SF-01 paper wall from behind'],
+    ['The tear', 'The way back out', 'The SF-01 crack, now open'],
+    ['Closing line', 'Names all four parts in order', 'Copy "Found by INDEX. Built by DEVOS. Checked by AMOS. All of it on ATLAS."'],
+    ['Scroll counter', 'Where you are in eight scenes', 'Specimen-catalogue numbering'],
+  ],
+  async build({ renderer, vp }) {
+    const scene = new THREE.Scene();
+    nightLights(scene, { sky: 0.3, moon: 0.08 });
+    scene.add(makeGround({}));
+    // the back face: a bone sheet (worldW 34 × 20) seen from −z
+    const sh = makeSheet(4096, Math.round(4096 * SHEET.h / SHEET.w), SHEET.w, SHEET.h);
+    sh.cc.fillStyle = HEX.bone; sh.cc.fillRect(0, 0, sh.texW, sh.texH);
+    const r = rng(907);
+    fibres(sh, r, 12000);
+    const P = (x, y) => sh.px(x, y - SHEET.cy);
+    // the tear: open to the daylight outside (colour black, emission paper), torn fibrous lip
+    const tear = tearOutline(r);
+    const path = (ctx, scale = 1) => { ctx.beginPath(); tear.forEach(([x, y], i) => { const [a, b] = P(x * scale, y * scale); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath(); };
+    sh.hc.filter = 'blur(6px)'; sh.hc.fillStyle = 'rgba(255,255,255,0.35)'; path(sh.hc, 1.05); sh.hc.fill(); sh.hc.filter = 'none';   // the lip curls toward us
+    sh.cc.fillStyle = HEX.paper; path(sh.cc, 1.03); sh.cc.fill();                                                                  // thin torn edge catches light
+    sh.cc.fillStyle = '#000'; path(sh.cc); sh.cc.fill();
+    sh.ec.filter = 'blur(14px)'; sh.ec.fillStyle = 'rgba(255,255,255,0.18)'; path(sh.ec, 1.08); sh.ec.fill(); sh.ec.filter = 'none'; // light through thin paper at the lip
+    sh.ec.fillStyle = '#fff'; path(sh.ec); sh.ec.fill();
+    // printed result
+    const ppu = sh.ppu, cx = sh.cc;
+    const x0 = BLOCK.x - BLOCK.w / 2;
+    const at = (x, y) => P(x, y);
+    const line = (txt, y, cap, o = {}) => {
+      setFont(cx, o.w ?? 400, cap * ppu / (o.mono ? 0.73 : 0.7), o.mono ? 'mono' : 'Montserrat', o.track ?? 0.02);
+      cx.fillStyle = o.color ?? HEX.ink; cx.textAlign = 'left'; cx.textBaseline = 'alphabetic';
+      const [a, b] = at(x0, y); cx.fillText(txt, a, b);
+    };
+    let y = BLOCK.y + BLOCK.h / 2 - 0.42;
+    line('No. [rank]   ·   [query]', y, 0.24, { mono: true, color: HEX.stone, track: 0.06 }); y -= 0.62;
+    line(SITE.domain, y, 0.29, { mono: true, color: HEX.stone }); y -= 0.78;
+    setFont(cx, 500, 0.34 * ppu / 0.7, 'Montserrat', 0.01);
+    for (const l of wrap(cx, SITE.title, BLOCK.w * ppu)) { line(l, y, 0.34, { w: 500, track: 0.01 }); y -= 0.6; }
+    y -= 0.12;
+    setFont(cx, 400, 0.29 * ppu / 0.7, 'Montserrat', 0.02);
+    for (const l of wrap(cx, SITE.description, BLOCK.w * ppu)) { line(l, y, 0.29); y -= 0.52; }
+    const sheet = paperMesh(sh, { key: 0.92, amb: 0.42, bump: 1.4, emisCol: col('paper', 1.05) });
+    sheet.position.set(0, SHEET.cy, 0);
+    sheet.rotation.y = Math.PI; // faces −z; seen from K18 the texture's +u runs to the viewer's right, so print reads normally
+    scene.add(sheet);
+    const camera = vp.phone ? makeCamera(54, [0, 5, -17.5], [0, 4, 0]) : makeCamera(54, [0, 5, -16], [0, 4, 0]);
+    return { scene, camera, camNote: vp.phone ? 'Phone: K18 backed off to (0, 5, −17.5) so the 8-wide block fits (PROPOSED).' : null, blockBottom: y };
+  },
+  overlay(ctx, vp) {
+    sceneCopy(ctx, vp, { name: 'PROOF', line: CLOSING, color: HEX.ink, accent: HEX.stone, shadow: false });
+    sceneCounter(ctx, vp, 7, 'PROOF', HEX.stone);
+  },
 };

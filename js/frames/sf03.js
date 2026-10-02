@@ -1,45 +1,34 @@
-import { THREE, HEX, col, mixc, rng, makeCamera, groundMat, sky, glowTexture, sceneCopy } from '../core.js';
+import { HEX, makeCamera, sceneCounter } from '../core.js';
+import { buildChasm } from './sf02.js';
 
 export default {
-  id: 'SF-03', scene: 'ATLAS', moment: 'Grid stretching to horizon, low angle', p: '0.21',
-  key: 'K5', cam: '(0, 0.6, 5) → look (0, 0.5, −60) · FOV 74',
-  bloom: [0.95, 0.55, 0.1], clear: HEX.ink,
-  light: 'Grid is the light (emissive). Low gold ambient at the horizon. Exponential --ink fog fades the grid out.',
-  tokens: ['ink', 'gold', 'hot', 'bone'],
+  id: 'SF-03', scene: 'ATLAS', moment: 'The face-on climb: veins lit, a carved line read face-on, specimens embedded beside it', p: '0.17',
+  key: 'K4', cam: 'Face-on: carved line 2',
+  phone: true,
+  bloom: [0.6, 0.5, 0.6], clear: HEX.ink,
+  light: 'The gold veins are the key: --atlas-gold-hot emissive in the veins and the carved line (the only bloom). Tear daylight and the paper-wall bounce stay as fill. Ink exponential fog.',
+  tokens: ['ink', 'graphite', 'stone', 'bone', 'gold', 'hot'],
   proposed: [
-    'Grid pitch: 1-unit minor lines, 5-unit major lines, glowing nodes at major crossings.',
-    'Light pulses travelling along a few major lines (the system is running).',
-    'Gold dust motes hanging over the grid for depth.',
-    'Copy placement bottom-left: system name small, line large. System-line timing is still open (G5).',
+    'Carved line cap height 0.22 (line 2 "on ATLAS.").',
+    'Phone key: K4 backed off to (0, −22, −1.0), distance 5. The chasm is only 6 deep (paper wall at z 0), so it cannot back off further.',
+    'Specimens at (−3.7, −23.2) and (3.6, −20.8) flank the line on desktop.',
   ],
-  unknown: [],
-  build() {
-    const scene = new THREE.Scene();
-    const camera = makeCamera(74, [0, 0.6, 5], [0, 0.5, -60]);
-    const horizon = mixc('ink', 'gold', 0.07);
-    scene.add(sky(col('ink'), horizon, col('ink'), 0.05));
-    const g = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), groundMat({
-      fogD: 0.019, fogCol: horizon, base: col('ink'), line: col('gold'), node: col('hot'),
-      iMinor: 0.16, iMajor: 0.62, iNode: 1.1, pulse: 2.4, time: 3.7, minorFade: 46,
-    }));
-    scene.add(g);
-
-    const r = rng(5), M = 1100;
-    const pos = new Float32Array(M * 3), cols = new Float32Array(M * 3), c = new THREE.Color();
-    for (let i = 0; i < M; i++) {
-      pos.set([r.range(-26, 26), 0.08 + Math.pow(r(), 2.2) * 5, r.range(3, -70)], i * 3);
-      c.copy(col(r() < 0.75 ? 'gold' : 'hot')).multiplyScalar(r.range(0.4, 1.6));
-      cols.set([c.r, c.g, c.b], i * 3);
-    }
-    const pg = new THREE.BufferGeometry();
-    pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    pg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-    scene.add(new THREE.Points(pg, new THREE.PointsMaterial({
-      size: 0.07, map: glowTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    })));
-    return { scene, camera };
+  unknown: [
+    'Phone finding: at 390 wide no specimen fits beside the line inside the chasm. Proposal for G4: on phone, place a specimen above or below each carved line so one passes during the K4a → K4c climb.',
+  ],
+  audit: [
+    ['Carved line', 'States the brand truth face-on', 'Canon "Everything stands on ATLAS." split over three lines (F7)'],
+    ['Lit gold veins', 'The foundation waking: the scene\'s key light', 'ATLAS gold (--atlas-gold-hot)'],
+    ['Specimens beside the line', 'Proof under the claim', 'AXIEL\'s own work only (G2-2)'],
+    ['Dressed stone panel', 'Gives the line a readable ground', 'Masonry of the strata, not a UI card'],
+    ['Scroll counter', 'Where you are in eight scenes', 'Specimen-catalogue numbering'],
+  ],
+  async build({ renderer, tier, vp }) {
+    const { scene } = await buildChasm(renderer, { tier, vein: 1, carveGlow: 0.6, tear: 1400 });
+    const camera = vp.phone
+      ? makeCamera(74, [0, -22, -1.0], [0, -22, -6])
+      : makeCamera(74, [0, -22, -2.5], [0, -22, -6]);
+    return { scene, camera, camNote: vp.phone ? 'Phone: K4 backed off along its axis to distance 5 (PROPOSED).' : null };
   },
-  overlay(ctx, W, H) {
-    sceneCopy(ctx, W, H, { name: 'ATLAS', line: 'Everything stands on ATLAS.', accent: HEX.gold });
-  },
+  overlay(ctx, vp) { sceneCounter(ctx, vp, 3, 'ATLAS', HEX.bone); },
 };
