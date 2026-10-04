@@ -22,6 +22,10 @@ const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } }
 const probe = await ctx.newPage();
 probe.on('console', m => { if (m.type() === 'error') console.log('probe console:', m.text().slice(0, 300)); });
 probe.on('pageerror', e => console.log('probe pageerror:', e.message.slice(0, 300)));
+const pending = new Set();
+probe.on('request', q => pending.add(q.url()));
+probe.on('requestfinished', q => pending.delete(q.url()));
+probe.on('requestfailed', q => { pending.delete(q.url()); console.log('probe request failed:', q.url(), q.failure()?.errorText); });
 await probe.goto(BASE, { timeout: 120000 });
 console.log('webgl:', await probe.evaluate(() => {
   const g = document.createElement('canvas').getContext('webgl2');
@@ -29,7 +33,14 @@ console.log('webgl:', await probe.evaluate(() => {
   const d = g.getExtension('WEBGL_debug_renderer_info');
   return [g.getParameter(d ? d.UNMASKED_RENDERER_WEBGL : g.RENDERER), 'maxTex', g.getParameter(g.MAX_TEXTURE_SIZE), 'samples', g.getParameter(g.MAX_SAMPLES), 'EXT_color_buffer_float', !!g.getExtension('EXT_color_buffer_float')].join(' ');
 }));
-await probe.waitForFunction(() => window.__frames, null, { timeout: 120000 });
+try {
+  await probe.waitForFunction(() => window.__frames, null, { timeout: 120000 });
+} catch (e) {
+  console.log('probe: harness never started. Still pending:', [...pending]);
+  console.log('probe: readyState', await probe.evaluate(() => document.readyState), 'page text:', await probe.evaluate(() => document.body.innerText.slice(0, 300)));
+  await probe.screenshot({ path: `${OUT}/probe-timeout.png` });
+  throw e;
+}
 const frames = await probe.evaluate(() => window.__frames);
 await probe.close();
 
