@@ -9,7 +9,9 @@ Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3
 - **Gallery** (finished full-size PNGs, safe on a phone): https://notsofatfredd.github.io/axiel-style-frames/gallery/
 - **Live harness** (renders 3D on your device at 2560×1440, heavy): https://notsofatfredd.github.io/axiel-style-frames/
 
-Both update only after a full render run passes (see below), so they always show the last good set. The harness needs WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
+Both update only after a full render run passes (see below), so they always show the last good set. A failed frame also holds back harness changes on the link until a run passes. The harness needs WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
+
+The repository is public, so the code, this README and its history are visible to anyone. The pages carry `noindex` so search engines leave them out of results; Pages cannot send headers, so a direct PNG link is still reachable by anyone who has it.
 
 ## Run locally (editing only)
 
@@ -18,7 +20,7 @@ cd axiel-style-frames
 python -m http.server 5181
 ```
 
-Open http://127.0.0.1:5181/?check=1 for a quarter-size look while editing. Full-size renders run on GitHub, not on the laptop.
+Open http://127.0.0.1:5181/?check=1 for a quarter-size look while editing. Full-size renders run on GitHub, not on the laptop. Check mode is fine for layout, camera and copy, but not for bloom or glow: bloom reads differently at quarter size (the SF-03 haze was mostly a quarter-size artefact). Judge bloom on the gallery PNGs.
 
 | Key | Action |
 |---|---|
@@ -48,10 +50,14 @@ How it avoids failing:
 | Frame timeout 15 min, job timeout 30 min (slowest frame takes about 3 min) | A stuck frame burning hours of Actions minutes |
 | Timer polling (2 s), check-mode probe | Headless waits starving while software GL builds a frame |
 | Install retries, server readiness check | Network blips failing a run before it renders |
-| A frame fails the job if it goes over the §7.2 budget (desktop 150 calls / 500k triangles, phone 80 / 150k) or logs page errors | Over-budget or broken frames passing quietly |
+| A frame fails the job if it goes over the §7.2 budget (desktop 150 calls / 500k triangles, phone 80 / 150k, counted as total calls including the post chain) | Over-budget frames passing quietly |
+| A frame fails if its 3D layer alone is blank (max luminance under 16, or p5 to p99 spread under 4), measured without the copy overlay | Dead WebGL hidden under live copy |
+| A frame fails on any page error, console error, HTTP error or failed load (only the browser's favicon request is excused) | Missing assets or broken scripts passing quietly |
 | Pages deploys only when every frame passes on a full run | A broken or partial set replacing the public link |
 
-A push cancels an older run still going on the same branch.
+A push cancels an older run still going on the same branch. The repository is public, so standard runner minutes cost nothing; a billing budget cap is only a safety net.
+
+The renders use SwiftShader (software WebGL). Bloom, precision and anti-aliasing can differ on a real GPU, so compare at least one frame on real hardware before sign-off.
 
 ## Render settings (all frames)
 

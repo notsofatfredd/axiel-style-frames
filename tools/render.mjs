@@ -63,8 +63,11 @@ const log = [];
 for (const j of jobs) {
   const page = await ctx.newPage();
   const errs = [];
-  page.on('console', m => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push(m.text().slice(0, 200)); });
+  // failed loads are logged by URL from the response, so only the browser's own favicon request is excused
+  page.on('console', m => { if (m.type() === 'error' && !/^Failed to load resource/.test(m.text())) errs.push(m.text().slice(0, 200)); });
   page.on('pageerror', e => errs.push('PAGEERR ' + e.message.slice(0, 200)));
+  page.on('response', s => { if (s.status() >= 400 && !/\/favicon\.ico$/.test(s.url())) errs.push(`HTTP ${s.status()} ${s.url().slice(0, 160)}`); });
+  page.on('requestfailed', q => { if (!/\/favicon\.ico$/.test(q.url())) errs.push(`LOADFAIL ${q.url().slice(0, 160)} ${q.failure()?.errorText ?? ''}`); });
   const q = new URLSearchParams({ ...(j.tier === 'mid' ? { tier: 'mid' } : {}), ...(j.vp === 'phone' ? { vp: 'phone' } : {}) });
   const t0 = Date.now();
   let r;
@@ -76,13 +79,19 @@ for (const j of jobs) {
       if (!f.ok) return f;
       const png = window.__snapshot();
       const img = new Image(); img.src = png; await img.decode();
-      const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * img.height / img.width);
-      const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height);
-      const d = x.getImageData(0, 0, c.width, c.height).data, L = [];
-      for (let i = 0; i < d.length; i += 4) L.push(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
-      L.sort((a, b) => a - b); const p = q => Math.round(L[Math.floor(q * (L.length - 1))]);
+      const lums = src => {
+        const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * src.height / src.width);
+        const x = c.getContext('2d'); x.drawImage(src, 0, 0, c.width, c.height);
+        const d = x.getImageData(0, 0, c.width, c.height).data, L = [];
+        for (let i = 0; i < d.length; i += 4) L.push(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
+        return L.sort((a, b) => a - b);
+      };
+      const L = lums(img), p = (A, q) => Math.round(A[Math.floor(q * (A.length - 1))]);
+      // the 3D layer alone (preserveDrawingBuffer), so dead WebGL under live copy still reads as blank
+      const G = lums(document.getElementById('gl'));
       return { ...f, png, w: img.width, h: img.height,
-        lum: [Math.round(L.reduce((a, b) => a + b, 0) / L.length), p(0.05), p(0.5), p(0.95), p(0.99), Math.round(L.at(-1))].join(' / '),
+        lum: [Math.round(L.reduce((a, b) => a + b, 0) / L.length), p(L, 0.05), p(L, 0.5), p(L, 0.95), p(L, 0.99), Math.round(L.at(-1))].join(' / '),
+        gl: { p5: p(G, 0.05), p99: p(G, 0.99), max: Math.round(G.at(-1)) },
         clip: +(L.filter(v => v >= 250).length / L.length).toFixed(3), black: +(L.filter(v => v <= 4).length / L.length).toFixed(3) };
     });
   } catch (e) { r = { ok: false, err: e.message.slice(0, 200) }; }
@@ -93,7 +102,8 @@ for (const j of jobs) {
   const b = BUDGET[j.vp], gate = [];
   if (r.ok && r.calls > b.calls) gate.push(`${r.calls} calls > ${b.calls}`);
   if (r.ok && r.tris > b.tris) gate.push(`${r.tris} triangles > ${b.tris}`);
-  if (entry.errs.length) gate.push(`${entry.errs.length} page error(s)`);
+  if (r.ok && (r.gl.max < 16 || r.gl.p99 - r.gl.p5 < 4)) gate.push(`blank 3D layer (max ${r.gl.max}, p5–p99 ${r.gl.p5}–${r.gl.p99})`);
+  if (entry.errs.length) gate.push(`${entry.errs.length} page error(s): ${entry.errs[0]}`);
   if (gate.length) entry.gate = gate.join('; ');
   log.push(entry);
   console.log(JSON.stringify(entry));
