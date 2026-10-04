@@ -127,47 +127,51 @@ Every frame's notes panel lists its full light description, tokens, PROPOSED and
 - **SF-07b:** rank and query (M5) shown as "No. [rank]" and "[query]" until supplied.
 - **SF-08:** the submit control on the tag (label and position) and the "What do you need?" options (§9.3).
 
-## Render check (2026-10-02)
+## Render check (2026-10-05, full size)
 
-Headless numeric check only. **This is not a visual review.** Run in `?check=1` (quarter size, quarter paper textures) because full-size renders ran out of memory on this machine. The draw calls and triangles are the real ones. Luminance is 0–255 sRGB from a 160 px downsample: mean / p5 / p50 / p95 / p99 / max. "Near-black" is the share of pixels ≤ 4. 0 console errors and 0 context losses on every run.
+Headless numeric check only. **This is not a visual review.** All 24 deliverable PNGs rendered at full size by the Render frames workflow (run 6, GitHub Actions, SwiftShader software WebGL). Luminance is 0–255 sRGB from a 320 px downsample: mean / p5 / p50 / p95 / p99 / max. "Near-black" is the share of pixels ≤ 4. "Build / render ms" is software-GL time on the runner, not a performance figure. 0 console errors and 0 context losses on every render.
 
-Budgets (§7.2): desktop ≤ 150 calls and ≤ 500k triangles; phone ≤ 80 calls and ≤ 150k triangles. "Calls" is scene calls / total calls including the post chain.
+Budgets (§7.2): desktop ≤ 150 calls and ≤ 500k triangles; phone ≤ 80 calls and ≤ 150k triangles. "Calls" is scene calls / total calls including the post chain. Every frame is inside budget. Phone SF-07 high uses 78 of 80 total calls; 47 of those are the post chain, not the scene.
 
-| Frame | Tier · viewport | Calls | Triangles | Luminance | Near-black |
-|---|---|---|---|---|---|
-| SF-01 | high · desktop | 1 / 18 | 2 | 232 / 221 / 233 / 244 / 254 / 255 | 0 (1.5% at ≥ 250) |
-| SF-01 | mid · desktop | 1 / 4 | 2 | | |
-| SF-02 | high = mid · desktop | 15 / 18 | 30,482 | 28 / 0 / 22 / 87 / 98 / 117 | 37.8% (veins dark, by design) |
-| SF-03 | high · desktop | 15 / 46 | 30,482 | 80 / 38 / 70 / 180 / 228 / 229 | 0 |
-| SF-03 | mid · desktop | 15 / 18 | 30,482 | 36 / 11 / 33 / 61 / 210 / 212 | 0.5% |
-| SF-03 | high · phone | 15 / 46 | 30,482 | 83 / 51 / 71 / 184 / 228 / 229 | 0 |
-| SF-03 | mid · phone | 15 / 18 | 30,482 | 41 / 11 / 38 / 68 / 210 / 217 | 0 |
-| SF-04 | high · desktop | 34 / 84 | 8,120 | 13 / 1 / 9 / 44 / 150 / 184 | 13.8% |
-| SF-04 | mid · desktop | 34 / 37 | 3,896 | 13 / 2 / 9 / 42 / 150 / 184 | 13.5% |
-| SF-05 | high · desktop | 57 / 130 | 36,018 | 67 / 18 / 57 / 133 / 202 / 230 | 0 |
-| SF-05 | mid · desktop | 57 / 60 | 31,794 | 59 / 7 / 50 / 106 / 160 / 216 | 1.9% |
-| SF-06 | high · desktop | 39 / 42 | 334,478 | 28 / 10 / 23 / 57 / 137 / 162 | 0 |
-| SF-06 | mid · desktop | 39 / 42 | 141,854 | | |
-| SF-07 | high · desktop | 34 / 84 | 8,108 | 26 / 1 / 5 / 186 / 201 / 204 | 29.6% |
-| SF-07 | mid · desktop | 34 / 37 | 3,884 | 26 / 1 / 5 / 186 / 201 / 204 | 29.6% |
-| SF-07 | high · phone | 31 / 78 | 7,660 | 55 / 1 / 8 / 200 / 201 / 204 | 24.1% |
-| SF-07 | mid · phone | 31 / 34 | 3,436 | 55 / 1 / 8 / 200 / 201 / 204 | 24.1% |
-| SF-07b | high = mid · desktop | 2 / 5 | 4 | 190 / 15 / 205 / 244 / 244 / 247 | 0 |
-| SF-07b | high = mid · phone | 2 / 5 | 4 | 183 / 14 / 206 / 244 / 244 / 254 | |
-| SF-08 | high = mid · desktop | 11 / 14 | 33,220 | 223 / 170 / 231 / 242 / 246 / 252 | 0 |
+| Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |
+|---|---|---|---|---|---|---|---|---|---|
+| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 255 | 0.0% | 0.3% | 188 / 29579 | 0 |
+| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 255 | 0.0% | 0.2% | 188 / 13395 | 0 |
+| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 21 / 87 / 98 / 165 | 38.6% | 0.0% | 337 / 1809 | 0 |
+| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 21 / 87 / 98 / 165 | 38.6% | 0.0% | 347 / 1658 | 0 |
+| SF-03 | high · desktop | 2560×1440 | 15 / 46 | 30,482 | 64 / 14 / 49 / 190 / 231 / 233 | 0.4% | 0.0% | 560 / 7962 | 0 |
+| SF-03 | high · phone | 1170×2532 | 15 / 46 | 30,482 | 66 / 29 / 51 / 193 / 231 / 232 | 0.0% | 0.0% | 422 / 4620 | 0 |
+| SF-03 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 36 / 10 / 33 / 60 / 210 / 214 | 0.6% | 0.0% | 410 / 2228 | 0 |
+| SF-03 | mid · phone | 1170×2532 | 15 / 18 | 30,482 | 41 / 11 / 39 / 59 / 210 / 220 | 0.0% | 0.0% | 396 / 4530 | 0 |
+| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,120 | 13 / 1 / 9 / 41 / 157 / 214 | 14.9% | 0.0% | 500 / 9328 | 0 |
+| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,896 | 13 / 1 / 10 / 40 / 156 / 213 | 14.8% | 0.0% | 317 / 2525 | 0 |
+| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 65 / 9 / 56 / 137 / 213 / 235 | 2.5% | 0.0% | 223 / 4038 | 0 |
+| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 59 / 7 / 52 / 100 / 190 / 222 | 2.3% | 0.0% | 222 / 2066 | 0 |
+| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 23 / 58 / 143 / 210 | 0.0% | 0.0% | 225 / 2748 | 0 |
+| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 28 / 10 / 23 / 56 / 143 / 210 | 0.0% | 0.0% | 196 / 2081 | 0 |
+| SF-07 | high · desktop | 2560×1440 | 34 / 84 | 8,108 | 25 / 1 / 6 / 187 / 201 / 204 | 28.5% | 0.0% | 417 / 3940 | 0 |
+| SF-07 | high · phone | 1170×2532 | 31 / 78 | 7,660 | 55 / 1 / 8 / 201 / 201 / 216 | 24.1% | 0.0% | 271 / 3503 | 0 |
+| SF-07 | mid · desktop | 2560×1440 | 34 / 37 | 3,884 | 25 / 1 / 6 / 187 / 201 / 204 | 28.5% | 0.0% | 280 / 2104 | 0 |
+| SF-07 | mid · phone | 1170×2532 | 31 / 34 | 3,436 | 55 / 1 / 8 / 201 / 201 / 216 | 24.1% | 0.0% | 299 / 3447 | 0 |
+| SF-07b | high · desktop | 2560×1440 | 2 / 5 | 4 | 193 / 14 / 208 / 244 / 244 / 255 | 0.0% | 0.2% | 366 / 564 | 0 |
+| SF-07b | high · phone | 1170×2532 | 2 / 5 | 4 | 185 / 14 / 209 / 244 / 244 / 255 | 0.0% | 0.7% | 226 / 506 | 0 |
+| SF-07b | mid · desktop | 2560×1440 | 2 / 5 | 4 | 193 / 14 / 208 / 244 / 244 / 255 | 0.0% | 0.2% | 217 / 520 | 0 |
+| SF-07b | mid · phone | 1170×2532 | 2 / 5 | 4 | 185 / 14 / 209 / 244 / 244 / 255 | 0.0% | 0.7% | 307 / 514 | 0 |
+| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,220 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 215 / 1061 | 0 |
+| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,220 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 216 / 394 | 0 |
 
-Blank cells were not measured. Every frame is inside budget. Phone SF-07 high uses 78 of 80 total calls; 47 of those are the post chain, not the scene.
+The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers except where bloom is involved: bloom kernels are fixed in pixels, so at quarter size the glow spread about 4× wider. SF-03 high went from mean 80 / p5 38 (quarter size) to 64 / 14 (full size): the glow sits tighter around the veins.
 
-**Changes made from these numbers (PROPOSED, need a visual OK):**
+**Changes made from the numbers (PROPOSED, need a visual OK):**
 - SF-04 and SF-07 night fill raised (sky π·0.22 → π·0.85 / π·0.8, moon π·0.05 → π·0.2). Before this, 66% of SF-04 measured near-black, because Neutral tone mapping squares everything under about 0.08 linear.
 - SF-03 vein spill fill (π·0.3). Mid tier had the stone at 4/255 without it.
 - Bloom threshold 0 on SF-04 and SF-07. The bloom source is already lantern and gold-hot only, and a 0.5 / 0.55 cut left almost nothing.
 
 **Flags for the visual review (Saeed):**
-- SF-07: 30% of the frame is near-black around the lit window. This may be right for night, or it may need more fill.
-- SF-02: 38% near-black. The protocol says the veins are dark here.
-- SF-03: the bloom-only layer averages about 60/255 across the whole frame, which can read as haze. Bloom kernels are fixed in pixels, so at quarter size the spread is about 4× wider than at full size. This needs a look at 2560×1440.
-- The full 2560×1440 and 1170×2532 deliverable PNGs are not exported yet. They need about 2 GB of free memory.
+- SF-07: 28% of the frame is near-black around the lit window. This may be right for night, or it may need more fill.
+- SF-02: 39% near-black. The protocol says the veins are dark here.
+- SF-04: 15% near-black after the night fill.
+- SF-03: check the glow around the veins at full size.
 
 ## Files
 
