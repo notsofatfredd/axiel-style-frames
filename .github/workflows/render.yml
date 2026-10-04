@@ -11,7 +11,9 @@ on:
   push:
     paths: ['js/**', 'index.html', 'assets/**', 'tools/render.mjs']
 
-concurrency: { group: render-${{ github.ref }}, cancel-in-progress: true }
+concurrency:
+  group: render-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   render:
