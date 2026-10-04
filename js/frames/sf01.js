@@ -21,6 +21,18 @@ function strokePath(sh, ctx, pts, maxW, style, extra = 0) {
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
   }
 }
+// Same strokes, blurred once: drawn on a scratch canvas cropped to the path, then composited
+// through the filter. Filtering each segment re-blurs a full-sheet layer per stroke, which
+// takes minutes without a GPU canvas (the cloud render).
+function blurredPath(sh, ctx, pts, maxW, style, blur, extra = 0) {
+  const px = pts.map(p => sh.px(...p)), pad = Math.ceil(extra + maxW + blur * 3);
+  const x0 = Math.floor(Math.min(...px.map(p => p[0]))) - pad, y0 = Math.floor(Math.min(...px.map(p => p[1]))) - pad;
+  const x1 = Math.ceil(Math.max(...px.map(p => p[0]))) + pad, y1 = Math.ceil(Math.max(...px.map(p => p[1]))) + pad;
+  const c = document.createElement('canvas'); c.width = x1 - x0; c.height = y1 - y0;
+  const t = c.getContext('2d'); t.translate(-x0, -y0);
+  strokePath(sh, t, pts, maxW, style, extra);
+  ctx.filter = `blur(${blur}px)`; ctx.drawImage(c, x0, y0); ctx.filter = 'none';
+}
 
 export default {
   id: 'SF-01', scene: 'Surface', moment: 'Hero copy, crack beginning', p: '0.06',
@@ -71,15 +83,10 @@ export default {
     const br1 = crackPath(r, 0.0, 0.2, -1.0, [0.02, 0.03]).map(([x, y], i) => [x, y - i * 0.012]);
     const br2 = crackPath(r, -0.3, -0.16, -1.03, [0.02, 0.03]).map(([x, y], i) => [x, y + i * 0.01]);
     for (const [p, w] of [[main, 1], [br1, 0.45], [br2, 0.4]]) {
-      sh.hc.filter = 'blur(3px)';
-      strokePath(sh, sh.hc, p, 7 * w, 'rgba(0,0,0,0.55)');   // depression (shading lip)
-      sh.hc.filter = 'none';
-      strokePath(sh, sh.cc, p, 3.2 * w, HEX.ink, 0.4);      // the split
-      sh.ec.filter = 'blur(10px)';
-      strokePath(sh, sh.ec, p, 16 * w, 'rgba(255,255,255,0.28)'); // light from beneath
-      sh.ec.filter = 'blur(2px)';
-      strokePath(sh, sh.ec, p, 3.4 * w, 'rgba(255,255,255,0.9)');
-      sh.ec.filter = 'none';
+      blurredPath(sh, sh.hc, p, 7 * w, 'rgba(0,0,0,0.55)', 3);          // depression (shading lip)
+      strokePath(sh, sh.cc, p, 3.2 * w, HEX.ink, 0.4);                   // the split
+      blurredPath(sh, sh.ec, p, 16 * w, 'rgba(255,255,255,0.28)', 10);  // light from beneath
+      blurredPath(sh, sh.ec, p, 3.4 * w, 'rgba(255,255,255,0.9)', 2);
     }
     strokePath(sh, sh.ec, main, 1.1, 'rgba(255,255,255,1)');
 
