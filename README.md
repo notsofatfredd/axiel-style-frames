@@ -11,7 +11,7 @@ cd axiel-style-frames
 python -m http.server 5181
 ```
 
-Open http://127.0.0.1:5181/ (or the GitHub Pages link). A page needs WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
+Open http://127.0.0.1:5181/ or the GitHub Pages link (https://notsofatfredd.github.io/axiel-style-frames/). A page needs WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
 
 | Key | Action |
 |---|---|
@@ -28,6 +28,12 @@ Link straight to a frame with `#sf-01` … `#sf-08`, or `#sf-07b`. Query options
 | `?vp=phone` | Phone 390×844 at 3× (SF-03, SF-07, SF-07b only, G2-4) |
 | `?check=1` | Low-memory check: 1/4 size and 1/4 paper textures. Same scenes, same draw calls and triangles. Not a deliverable. |
 | `?debug=bloom` | Shows the bloom layer alone. A check, not a deliverable. |
+
+## Full-size renders (GitHub Actions)
+
+The **Render frames** workflow renders every frame at full size on GitHub's runner (software WebGL), so local memory is not involved: all nine frames on high and mid tier, plus phone for SF-03, SF-07 and SF-07b. It runs on every push that touches `js/`, `index.html`, `assets/` or `tools/render.mjs`, or by hand from the Actions tab (optionally for a few frames, e.g. `SF-03,SF-07`). Download the PNGs and `render-log.md` from the run's artifact. The run summary shows the render log.
+
+Locally: serve the repo root, then `node tools/render.mjs http://127.0.0.1:8000/index.html renders` (needs `npm i playwright`).
 
 ## Render settings (all frames)
 
@@ -178,5 +184,6 @@ js/kit/seal.js        wax seal, specimen tag, string
 js/frames/sf0*.js     one module per frame: build(), overlay(), notes
 js/frames/util.js     rig bake, leader labels
 kit-check.html        world-kit smoke test
+tools/render.mjs      full-size render + render log (used by .github/workflows/render.yml)
 assets/               approved raster lockup and symbol
 ```

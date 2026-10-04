@@ -1,0 +1,43 @@
+name: Render frames
+
+# Full-size deliverable PNGs on GitHub's runner (software WebGL), so the laptop's memory is not involved.
+on:
+  workflow_dispatch:
+    inputs:
+      frames:
+        description: 'Only these frames, comma separated (e.g. SF-03,SF-07). Empty = all.'
+        required: false
+        default: ''
+  push:
+    paths: ['js/**', 'index.html', 'assets/**', 'tools/render.mjs']
+
+concurrency: { group: render-${{ github.ref }}, cancel-in-progress: true }
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install Playwright Chromium
+        run: |
+          npm i --no-save --no-package-lock playwright@1.48.2
+          npx playwright install --with-deps chromium
+      - name: Serve and render
+        env:
+          FRAMES: ${{ github.event.inputs.frames }}
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 &
+          sleep 2
+          node tools/render.mjs http://127.0.0.1:8000/index.html renders
+      - name: Render log
+        if: always()
+        run: cat renders/render-log.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: axiel-g2-frames-${{ github.run_number }}
+          path: renders/
+          retention-days: 30
