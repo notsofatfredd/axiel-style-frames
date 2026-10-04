@@ -8,7 +8,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:8000/index.html';
 const OUT = process.argv[3] ?? 'renders';
-const ONLY = process.env.FRAMES ? process.env.FRAMES.split(',').map(s => s.trim().toUpperCase()) : null;
+const ONLY = process.env.FRAMES ? process.env.FRAMES.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : null;
+// software GL is slow: poll on a timer (rAF polling starves while the page is busy building a frame)
+const POLL = { polling: 2000 };
+const FRAME_TIMEOUT = 45 * 60 * 1000;
 await mkdir(OUT, { recursive: true });
 
 // full headless Chromium (channel 'chromium') with SwiftShader: software WebGL2, no GPU needed
@@ -18,7 +21,7 @@ const browser = await chromium.launch({
 });
 const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
 
-// frame list from the harness itself
+// frame list from the harness itself, read from a cheap check-mode page (no full-size build)
 const probe = await ctx.newPage();
 probe.on('console', m => { if (m.type() === 'error') console.log('probe console:', m.text().slice(0, 300)); });
 probe.on('pageerror', e => console.log('probe pageerror:', e.message.slice(0, 300)));
@@ -26,7 +29,7 @@ const pending = new Set();
 probe.on('request', q => pending.add(q.url()));
 probe.on('requestfinished', q => pending.delete(q.url()));
 probe.on('requestfailed', q => { pending.delete(q.url()); console.log('probe request failed:', q.url(), q.failure()?.errorText); });
-await probe.goto(BASE, { timeout: 120000 });
+await probe.goto(`${BASE}?check=1#sf-07b`, { timeout: 120000, waitUntil: 'commit' });
 console.log('webgl:', await probe.evaluate(() => {
   const g = document.createElement('canvas').getContext('webgl2');
   if (!g) return 'no WebGL2 context';
@@ -34,11 +37,10 @@ console.log('webgl:', await probe.evaluate(() => {
   return [g.getParameter(d ? d.UNMASKED_RENDERER_WEBGL : g.RENDERER), 'maxTex', g.getParameter(g.MAX_TEXTURE_SIZE), 'samples', g.getParameter(g.MAX_SAMPLES), 'EXT_color_buffer_float', !!g.getExtension('EXT_color_buffer_float')].join(' ');
 }));
 try {
-  await probe.waitForFunction(() => window.__frames, null, { timeout: 120000 });
+  await probe.waitForFunction(() => window.__frames, null, { timeout: 600000, ...POLL });
 } catch (e) {
   console.log('probe: harness never started. Still pending:', [...pending]);
   console.log('probe: readyState', await probe.evaluate(() => document.readyState), 'page text:', await probe.evaluate(() => document.body.innerText.slice(0, 300)));
-  await probe.screenshot({ path: `${OUT}/probe-timeout.png` });
   throw e;
 }
 const frames = await probe.evaluate(() => window.__frames);
@@ -46,7 +48,7 @@ await probe.close();
 
 const jobs = [];
 for (const f of frames) {
-  if (ONLY && !ONLY.includes(f.id)) continue;
+  if (ONLY && !ONLY.includes(f.id.toUpperCase())) continue;
   for (const tier of ['high', 'mid']) {
     jobs.push({ ...f, tier, vp: 'desktop' });
     if (f.phone) jobs.push({ ...f, tier, vp: 'phone' });
@@ -64,8 +66,8 @@ for (const j of jobs) {
   const t0 = Date.now();
   let r;
   try {
-    await page.goto(`${BASE}?${q}#${j.id.toLowerCase()}`, { timeout: 180000 });
-    await page.waitForFunction(id => window.__frame && window.__frame.id === id, j.id, { timeout: 600000 });
+    await page.goto(`${BASE}?${q}#${j.id.toLowerCase()}`, { timeout: 180000, waitUntil: 'commit' });
+    await page.waitForFunction(id => window.__frame && window.__frame.id === id, j.id, { timeout: FRAME_TIMEOUT, ...POLL });
     r = await page.evaluate(async () => {
       const f = window.__frame;
       if (!f.ok) return f;
@@ -92,10 +94,10 @@ for (const j of jobs) {
 await browser.close();
 
 await writeFile(`${OUT}/render-log.json`, JSON.stringify(log, null, 2));
-const md = ['| Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Errors |', '|---|---|---|---|---|---|---|---|---|',
+const md = ['| Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |', '|---|---|---|---|---|---|---|---|---|---|',
   ...log.map(e => e.ok
-    ? `| ${e.id} | ${e.tier} · ${e.vp} | ${e.w}×${e.h} | ${e.sceneCalls} / ${e.calls} | ${e.tris.toLocaleString('en-US')} | ${e.lum} | ${(e.black * 100).toFixed(1)}% | ${(e.clip * 100).toFixed(1)}% | ${e.errs.length} |`
-    : `| ${e.id} | ${e.tier} · ${e.vp} | FAILED | | | ${e.err ?? ''} | | | ${e.errs.length} |`)].join('\n');
+    ? `| ${e.id} | ${e.tier} · ${e.vp} | ${e.w}×${e.h} | ${e.sceneCalls} / ${e.calls} | ${e.tris.toLocaleString('en-US')} | ${e.lum} | ${(e.black * 100).toFixed(1)}% | ${(e.clip * 100).toFixed(1)}% | ${e.buildMs} / ${e.renderMs} | ${e.errs.length} |`
+    : `| ${e.id} | ${e.tier} · ${e.vp} | FAILED | | | ${e.err ?? ''} | | | | ${e.errs.length} |`)].join('\n');
 await writeFile(`${OUT}/render-log.md`, md + '\n');
 const failed = log.filter(e => !e.ok).length;
 console.log(`\n${log.length - failed}/${log.length} rendered`);

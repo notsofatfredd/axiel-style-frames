@@ -1,11 +1,12 @@
 name: Render frames
 
-# Full-size deliverable PNGs on GitHub's runner (software WebGL), so the laptop's memory is not involved.
+# Full-size deliverable PNGs on GitHub's runners (software WebGL), so the laptop's memory is not involved.
+# One parallel job per frame (software GL is slow at 2560×1440), then one job merges PNGs and logs.
 on:
   workflow_dispatch:
     inputs:
       frames:
-        description: 'Only these frames, comma separated (e.g. SF-03,SF-07). Empty = all.'
+        description: 'Only these frames, comma separated (e.g. SF-03,SF-07b). Empty = all.'
         required: false
         default: ''
   push:
@@ -16,30 +17,72 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  render:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    outputs:
+      frames: ${{ steps.m.outputs.frames }}
+    steps:
+      - id: m
+        env:
+          PICK: ${{ github.event.inputs.frames }}
+        run: |
+          ALL='SF-01,SF-02,SF-03,SF-04,SF-05,SF-06,SF-07,SF-07b,SF-08'
+          LIST="${PICK:-$ALL}"
+          echo "frames=$(python3 -c "import json,sys; print(json.dumps([s.strip() for s in sys.argv[1].split(',') if s.strip()]))" "$LIST")" >> "$GITHUB_OUTPUT"
+
+  render:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        frame: ${{ fromJSON(needs.plan.outputs.frames) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with:
+          node-version: 20
       - name: Install Playwright Chromium
         run: |
           npm i --no-save --no-package-lock playwright@1.48.2
           npx playwright install --with-deps chromium
-      - name: Serve and render
+      - name: Serve and render ${{ matrix.frame }}
         env:
-          FRAMES: ${{ github.event.inputs.frames }}
+          FRAMES: ${{ matrix.frame }}
         run: |
-          python3 -m http.server 8000 --bind 127.0.0.1 &
+          python3 -m http.server 8000 --bind 127.0.0.1 > /dev/null 2>&1 &
           sleep 2
           node tools/render.mjs http://127.0.0.1:8000/index.html renders
-      - name: Render log
-        if: always()
-        run: cat renders/render-log.md >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: axiel-g2-frames-${{ github.run_number }}
+          name: frame-${{ matrix.frame }}
           path: renders/
+          retention-days: 7
+
+  collect:
+    needs: render
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: frame-*
+          path: parts
+      - name: Merge
+        run: |
+          mkdir -p out
+          find parts -name '*.png' -exec cp {} out/ \;
+          {
+            echo '| Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |'
+            echo '|---|---|---|---|---|---|---|---|---|---|'
+            for f in $(ls parts | sort); do tail -n +3 "parts/$f/render-log.md" 2>/dev/null || echo "| ${f#frame-} | | NO LOG | | | | | | | |"; done
+          } > out/render-log.md
+          cat out/render-log.md >> "$GITHUB_STEP_SUMMARY"
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: axiel-g2-frames-${{ github.run_number }}
+          path: out/
           retention-days: 30

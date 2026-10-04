@@ -31,7 +31,7 @@ Link straight to a frame with `#sf-01` … `#sf-08`, or `#sf-07b`. Query options
 
 ## Full-size renders (GitHub Actions)
 
-The **Render frames** workflow renders every frame at full size on GitHub's runner (software WebGL), so local memory is not involved: all nine frames on high and mid tier, plus phone for SF-03, SF-07 and SF-07b. It runs on every push that touches `js/`, `index.html`, `assets/` or `tools/render.mjs`, or by hand from the Actions tab (optionally for a few frames, e.g. `SF-03,SF-07`). Download the PNGs and `render-log.md` from the run's artifact. The run summary shows the render log.
+The **Render frames** workflow renders every frame at full size on GitHub's runners (software WebGL, one parallel job per frame), so local memory is not involved: all nine frames on high and mid tier, plus phone for SF-03, SF-07 and SF-07b. It runs on every push that touches `js/`, `index.html`, `assets/` or `tools/render.mjs`, or by hand from the Actions tab (optionally for a few frames, e.g. `SF-03,SF-07`). Download the PNGs and `render-log.md` from the run's artifact. The run summary shows the render log.
 
 Locally: serve the repo root, then `node tools/render.mjs http://127.0.0.1:8000/index.html renders` (needs `npm i playwright`).
 
