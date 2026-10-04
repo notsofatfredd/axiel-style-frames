@@ -1,0 +1,124 @@
+"""Build the review gallery from the per-frame render artifacts.
+
+Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number]
+  parts_dir: one folder per frame job, each with PNGs and render-log.json (from tools/render.mjs)
+  out_dir:   writes full/*.png, thumbs/*.jpg, render-log.md, render-log.json, index.html
+
+The gallery shows finished PNGs only, so viewing it never renders 3D on the viewer's device.
+Thumbnails need Pillow; without it the page uses the full PNGs.
+"""
+import html
+import json
+import shutil
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+ORDER = ['SF-01', 'SF-02', 'SF-03', 'SF-04', 'SF-05', 'SF-06', 'SF-07', 'SF-07b', 'SF-08']
+SCENE = {'SF-01': 'Surface', 'SF-02': 'Fall', 'SF-03': 'ATLAS', 'SF-04': 'INDEX', 'SF-05': 'DEVOS',
+         'SF-06': 'AMOS', 'SF-07': 'Proof', 'SF-07b': 'Proof', 'SF-08': 'Seal'}
+VARIANT = [('high', 'desktop'), ('mid', 'desktop'), ('high', 'phone'), ('mid', 'phone')]
+
+
+def main(parts, out, run):
+    parts, out = Path(parts), Path(out)
+    (out / 'full').mkdir(parents=True, exist_ok=True)
+    (out / 'thumbs').mkdir(exist_ok=True)
+    log = []
+    for f in sorted(parts.glob('*/render-log.json')):
+        log += json.loads(f.read_text(encoding='utf-8'))
+    for png in parts.glob('*/*.png'):
+        shutil.copy2(png, out / 'full' / png.name)
+
+    try:
+        from PIL import Image
+        for png in (out / 'full').glob('*.png'):
+            im = Image.open(png).convert('RGB')
+            im.thumbnail((900, 900))
+            im.save(out / 'thumbs' / (png.stem + '.jpg'), quality=82)
+        thumbs = True
+    except ImportError:
+        thumbs = False
+
+    log.sort(key=lambda e: (ORDER.index(e['id']) if e['id'] in ORDER else 99, VARIANT.index((e['tier'], e['vp']))))
+    (out / 'render-log.json').write_text(json.dumps(log, indent=2), encoding='utf-8')
+    rows = ['| Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |',
+            '|---|---|---|---|---|---|---|---|---|---|']
+    for e in log:
+        if e.get('ok'):
+            rows.append(f"| {e['id']} | {e['tier']} · {e['vp']} | {e['w']}×{e['h']} | {e['sceneCalls']} / {e['calls']} | {e['tris']:,} | {e['lum']} | "
+                        f"{e['black'] * 100:.1f}% | {e['clip'] * 100:.1f}% | {e['buildMs']} / {e['renderMs']} | {len(e['errs'])}{' · GATE ' + e['gate'] if e.get('gate') else ''} |")
+        else:
+            rows.append(f"| {e['id']} | {e['tier']} · {e['vp']} | FAILED | | | {e.get('err', '')} | | | | {len(e['errs'])} |")
+    # BOM so a browser opening the raw .md from Pages reads the · and × correctly
+    (out / 'render-log.md').write_text('\n'.join(rows) + '\n', encoding='utf-8-sig')
+
+    ok = sum(1 for e in log if e.get('ok'))
+    when = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    cards = []
+    for fid in ORDER:
+        es = [e for e in log if e['id'] == fid]
+        if not es:
+            continue
+        shots = []
+        for e in es:
+            label = f"{e['tier']} · {e['vp']}"
+            if not e.get('ok'):
+                shots.append(f'<figure class="fail"><div>Render failed</div><figcaption>{label}</figcaption></figure>')
+                continue
+            src = f"thumbs/{Path(e['file']).stem}.jpg" if thumbs else f"full/{e['file']}"
+            stats = f"{e['sceneCalls']} / {e['calls']} calls · {e['tris']:,} tris · near-black {e['black'] * 100:.0f}%"
+            if e.get('gate'):
+                stats += f" · GATE: {html.escape(e['gate'])}"
+            shots.append(
+                f'<figure class="{e["vp"]}"><a href="full/{html.escape(e["file"])}">'
+                f'<img src="{html.escape(src)}" alt="{fid} {label}" loading="lazy" width="{e["w"]}" height="{e["h"]}"></a>'
+                f'<figcaption><b>{label}</b><span>{stats}</span></figcaption></figure>')
+        cards.append(f'<section id="{fid.lower()}"><h2><span>{fid}</span> {SCENE[fid]}</h2><div class="shots">{"".join(shots)}</div></section>')
+
+    page = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AXIEL G2 Frames</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {{ --ink: #0B0B0C; --graphite: #1D1D1F; --stone: #6A675F; --bone: #D6D2C8; --paper: #F2EFE9; --atlas-gold: #C9A35B; --signal-red: #C2412D; }}
+* {{ box-sizing: border-box; }}
+html, body {{ margin: 0; background: var(--ink); color: var(--bone); font: 400 15px/1.5 Montserrat, sans-serif; }}
+header, main, footer {{ max-width: 1280px; margin: 0 auto; padding: 0 16px; }}
+header {{ padding-top: 32px; padding-bottom: 8px; }}
+h1 {{ margin: 0; font-weight: 300; font-size: 14px; letter-spacing: .16em; text-transform: uppercase; }}
+h1 b {{ font-weight: 500; color: var(--atlas-gold); }}
+.meta {{ font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--stone); margin: 8px 0 0; }}
+.meta a, footer a {{ color: var(--bone); }}
+nav {{ display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 8px; }}
+nav a {{ font: 500 12px/1 "JetBrains Mono", monospace; color: var(--bone); text-decoration: none; background: var(--graphite); padding: 8px 10px; }}
+section {{ padding: 28px 0 8px; border-top: 1px solid var(--graphite); margin-top: 20px; }}
+h2 {{ margin: 0 0 14px; font-weight: 300; font-size: 22px; letter-spacing: .04em; }}
+h2 span {{ font: 500 13px "JetBrains Mono", monospace; color: var(--atlas-gold); margin-right: 8px; vertical-align: middle; }}
+.shots {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }}
+figure {{ margin: 0; }}
+figure.phone {{ max-width: 260px; }}
+img {{ display: block; width: 100%; height: auto; background: var(--graphite); }}
+figcaption {{ display: flex; flex-direction: column; gap: 2px; padding-top: 8px; font: 400 12px/1.4 "JetBrains Mono", monospace; color: var(--stone); }}
+figcaption b {{ color: var(--bone); font-weight: 500; }}
+figure.fail div {{ aspect-ratio: 16 / 9; display: grid; place-items: center; background: var(--graphite); color: var(--signal-red); font: 500 13px "JetBrains Mono", monospace; }}
+footer {{ padding-top: 32px; padding-bottom: 48px; font-size: 13px; color: var(--stone); }}
+</style></head><body>
+<header>
+<h1><b>AXIEL</b> · Gate G2 style frames</h1>
+<p class="meta">{ok} of {len(log)} rendered · run {html.escape(str(run))} · {when}<br>
+Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <a href="../">live harness (renders on your device, heavy)</a></p>
+<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}</nav>
+</header>
+<main>{''.join(cards)}</main>
+<footer>Rendered by the Render frames workflow on GitHub Actions (software WebGL). Numbers are a headless check, not a visual review.</footer>
+</body></html>
+"""
+    (out / 'index.html').write_text(page, encoding='utf-8')
+    print(f'gallery: {ok}/{len(log)} rendered, thumbs={thumbs}, {out}')
+    return ok, len(log)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local')

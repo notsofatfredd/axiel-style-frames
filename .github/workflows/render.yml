@@ -1,16 +1,18 @@
 name: Render frames
 
 # Full-size deliverable PNGs on GitHub's runners (software WebGL), so the laptop's memory is not involved.
-# One parallel job per frame (software GL is slow at 2560×1440), then one job merges PNGs and logs.
+# One parallel job per frame (software GL is slow at 2560×1440), then one job merges PNGs and logs into
+# a gallery, then Pages gets the harness plus /gallery/. Pages only updates when every frame passed on a
+# full run, so the public link always shows the last good set.
 on:
   workflow_dispatch:
     inputs:
       frames:
-        description: 'Only these frames, comma separated (e.g. SF-03,SF-07b). Empty = all.'
+        description: 'Only these frames, comma separated (e.g. SF-03,SF-07b). Empty = all. Partial runs never deploy.'
         required: false
         default: ''
   push:
-    paths: ['js/**', 'index.html', 'assets/**', 'tools/render.mjs']
+    paths: ['js/**', 'index.html', 'assets/**', 'tools/**', '.github/workflows/render.yml']
 
 concurrency:
   group: render-${{ github.ref }}
@@ -19,6 +21,7 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       frames: ${{ steps.m.outputs.frames }}
     steps:
@@ -33,7 +36,8 @@ jobs:
   render:
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # slowest frame is about 3 min; render.mjs gives up on a stuck frame at 15 min
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -43,16 +47,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium (retries network blips)
         run: |
-          npm i --no-save --no-package-lock playwright@1.48.2
-          npx playwright install --with-deps chromium
+          for i in 1 2 3; do npm i --no-save --no-package-lock playwright@1.48.2 && break; echo "retry $i"; sleep 15; done
+          for i in 1 2 3; do npx playwright install --with-deps chromium && break; echo "retry $i"; sleep 15; done
       - name: Serve and render ${{ matrix.frame }}
         env:
           FRAMES: ${{ matrix.frame }}
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 > /dev/null 2>&1 &
-          sleep 2
+          for i in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8000/index.html && break; sleep 1; done
           node tools/render.mjs http://127.0.0.1:8000/index.html renders
       - uses: actions/upload-artifact@v4
         if: always()
@@ -65,24 +69,48 @@ jobs:
     needs: render
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
           pattern: frame-*
           path: parts
-      - name: Merge
+      - name: Build gallery
         run: |
-          mkdir -p out
-          find parts -name '*.png' -exec cp {} out/ \;
-          {
-            echo '| Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |'
-            echo '|---|---|---|---|---|---|---|---|---|---|'
-            for f in $(ls parts | sort); do tail -n +3 "parts/$f/render-log.md" 2>/dev/null || echo "| ${f#frame-} | | NO LOG | | | | | | | |"; done
-          } > out/render-log.md
-          cat out/render-log.md >> "$GITHUB_STEP_SUMMARY"
-          ls out
+          pip install --quiet pillow
+          python tools/gallery.py parts gallery ${{ github.run_number }}
+          sed '1s/^\xEF\xBB\xBF//' gallery/render-log.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: axiel-g2-frames-${{ github.run_number }}
-          path: out/
+          path: gallery/
           retention-days: 30
+
+  deploy:
+    # default success(): skipped if any frame failed or went over budget, so Pages keeps the last good set
+    needs: [render, collect]
+    if: ${{ success() && !github.event.inputs.frames }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}gallery/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: axiel-g2-frames-${{ github.run_number }}
+          path: gallery
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: d
+        uses: actions/deploy-pages@v4

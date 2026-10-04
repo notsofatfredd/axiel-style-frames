@@ -11,7 +11,10 @@ const OUT = process.argv[3] ?? 'renders';
 const ONLY = process.env.FRAMES ? process.env.FRAMES.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : null;
 // software GL is slow: poll on a timer (rAF polling starves while the page is busy building a frame)
 const POLL = { polling: 2000 };
-const FRAME_TIMEOUT = 45 * 60 * 1000;
+// fail fast: the slowest frame (SF-01) takes about 3 min on the runner, so 15 min means stuck
+const FRAME_TIMEOUT = 15 * 60 * 1000;
+// §7.2 budgets (total draw calls, triangles); a frame over budget or with page errors fails the job
+const BUDGET = { desktop: { calls: 150, tris: 500000 }, phone: { calls: 80, tris: 150000 } };
 await mkdir(OUT, { recursive: true });
 
 // full headless Chromium (channel 'chromium') with SwiftShader: software WebGL2, no GPU needed
@@ -87,6 +90,11 @@ for (const j of jobs) {
   if (r.ok) await writeFile(`${OUT}/${name}`, Buffer.from(r.png.split(',')[1], 'base64'));
   const { png, ...row } = r;
   const entry = { id: j.id, tier: j.tier, vp: j.vp, file: r.ok ? name : null, secs: Math.round((Date.now() - t0) / 1000), ...row, errs: [...new Set(errs)].slice(0, 3) };
+  const b = BUDGET[j.vp], gate = [];
+  if (r.ok && r.calls > b.calls) gate.push(`${r.calls} calls > ${b.calls}`);
+  if (r.ok && r.tris > b.tris) gate.push(`${r.tris} triangles > ${b.tris}`);
+  if (entry.errs.length) gate.push(`${entry.errs.length} page error(s)`);
+  if (gate.length) entry.gate = gate.join('; ');
   log.push(entry);
   console.log(JSON.stringify(entry));
   await page.close();
@@ -99,6 +107,8 @@ const md = ['| Frame | Tier · viewport | Size | Calls (scene / total) | Triangl
     ? `| ${e.id} | ${e.tier} · ${e.vp} | ${e.w}×${e.h} | ${e.sceneCalls} / ${e.calls} | ${e.tris.toLocaleString('en-US')} | ${e.lum} | ${(e.black * 100).toFixed(1)}% | ${(e.clip * 100).toFixed(1)}% | ${e.buildMs} / ${e.renderMs} | ${e.errs.length} |`
     : `| ${e.id} | ${e.tier} · ${e.vp} | FAILED | | | ${e.err ?? ''} | | | | ${e.errs.length} |`)].join('\n');
 await writeFile(`${OUT}/render-log.md`, md + '\n');
-const failed = log.filter(e => !e.ok).length;
-console.log(`\n${log.length - failed}/${log.length} rendered`);
-process.exit(failed ? 1 : 0);
+const failed = log.filter(e => !e.ok), gated = log.filter(e => e.gate);
+console.log(`\n${log.length - failed.length}/${log.length} rendered`);
+for (const e of failed) console.log(`::error::${e.id} ${e.tier} ${e.vp} failed: ${e.err ?? 'harness reported not ok'}`);
+for (const e of gated) console.log(`::error::${e.id} ${e.tier} ${e.vp} gate: ${e.gate}`);
+process.exit(failed.length || gated.length ? 1 : 0);
