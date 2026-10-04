@@ -11,14 +11,24 @@ const OUT = process.argv[3] ?? 'renders';
 const ONLY = process.env.FRAMES ? process.env.FRAMES.split(',').map(s => s.trim().toUpperCase()) : null;
 await mkdir(OUT, { recursive: true });
 
+// full headless Chromium (channel 'chromium') with SwiftShader: software WebGL2, no GPU needed
 const browser = await chromium.launch({
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'],
+  channel: 'chromium',
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
 
 // frame list from the harness itself
 const probe = await ctx.newPage();
+probe.on('console', m => { if (m.type() === 'error') console.log('probe console:', m.text().slice(0, 300)); });
+probe.on('pageerror', e => console.log('probe pageerror:', e.message.slice(0, 300)));
 await probe.goto(BASE, { timeout: 120000 });
+console.log('webgl:', await probe.evaluate(() => {
+  const g = document.createElement('canvas').getContext('webgl2');
+  if (!g) return 'no WebGL2 context';
+  const d = g.getExtension('WEBGL_debug_renderer_info');
+  return [g.getParameter(d ? d.UNMASKED_RENDERER_WEBGL : g.RENDERER), 'maxTex', g.getParameter(g.MAX_TEXTURE_SIZE), 'samples', g.getParameter(g.MAX_SAMPLES), 'EXT_color_buffer_float', !!g.getExtension('EXT_color_buffer_float')].join(' ');
+}));
 await probe.waitForFunction(() => window.__frames, null, { timeout: 120000 });
 const frames = await probe.evaluate(() => window.__frames);
 await probe.close();
