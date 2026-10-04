@@ -4,14 +4,21 @@ Code-rendered style frames SF-01 to SF-08 (plus SF-07b) for the axiel.co.za home
 
 Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3), light and material (§2.3) and palette tokens (§2.1), built on shared world kits (strata, city, Cartographer, Living Core, seal). Nothing is colour-corrected afterwards. Signed decisions used: G1.1 and G2-1 to G2-9.
 
-## Run
+## Links
+
+- **Gallery** (finished full-size PNGs, safe on a phone): https://notsofatfredd.github.io/axiel-style-frames/gallery/
+- **Live harness** (renders 3D on your device at 2560×1440, heavy): https://notsofatfredd.github.io/axiel-style-frames/
+
+Both update only after a full render run passes (see below), so they always show the last good set. The harness needs WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
+
+## Run locally (editing only)
 
 ```
 cd axiel-style-frames
 python -m http.server 5181
 ```
 
-Open http://127.0.0.1:5181/ or the GitHub Pages link (https://notsofatfredd.github.io/axiel-style-frames/). A page needs WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
+Open http://127.0.0.1:5181/?check=1 for a quarter-size look while editing. Full-size renders run on GitHub, not on the laptop.
 
 | Key | Action |
 |---|---|
@@ -31,9 +38,20 @@ Link straight to a frame with `#sf-01` … `#sf-08`, or `#sf-07b`. Query options
 
 ## Full-size renders (GitHub Actions)
 
-The **Render frames** workflow renders every frame at full size on GitHub's runners (software WebGL, one parallel job per frame), so local memory is not involved: all nine frames on high and mid tier, plus phone for SF-03, SF-07 and SF-07b. It runs on every push that touches `js/`, `index.html`, `assets/` or `tools/render.mjs`, or by hand from the Actions tab (optionally for a few frames, e.g. `SF-03,SF-07`). Download the PNGs and `render-log.md` from the run's artifact. The run summary shows the render log.
+The **Render frames** workflow renders every frame at full size on GitHub's runners (software WebGL, one parallel job per frame), so local memory is not involved: all nine frames on high and mid tier, plus phone for SF-03, SF-07 and SF-07b. It runs on every push that touches `js/`, `index.html`, `assets/`, `tools/` or the workflow, or by hand from the Actions tab (optionally for a few frames, e.g. `SF-03,SF-07`). The run summary shows the render log. The run's artifact `axiel-g2-frames-<run>` holds the gallery: full PNGs, thumbnails, `render-log.md` and `render-log.json`.
 
-Locally: serve the repo root, then `node tools/render.mjs http://127.0.0.1:8000/index.html renders` (needs `npm i playwright`).
+How it avoids failing:
+
+| Measure | What it stops |
+|---|---|
+| Renders run on GitHub's runners, one job per frame | Laptop memory kills; one slow frame holding up the rest |
+| Frame timeout 15 min, job timeout 30 min (slowest frame takes about 3 min) | A stuck frame burning hours of Actions minutes |
+| Timer polling (2 s), check-mode probe | Headless waits starving while software GL builds a frame |
+| Install retries, server readiness check | Network blips failing a run before it renders |
+| A frame fails the job if it goes over the §7.2 budget (desktop 150 calls / 500k triangles, phone 80 / 150k) or logs page errors | Over-budget or broken frames passing quietly |
+| Pages deploys only when every frame passes on a full run | A broken or partial set replacing the public link |
+
+A push cancels an older run still going on the same branch.
 
 ## Render settings (all frames)
 
@@ -188,6 +206,7 @@ js/kit/seal.js        wax seal, specimen tag, string
 js/frames/sf0*.js     one module per frame: build(), overlay(), notes
 js/frames/util.js     rig bake, leader labels
 kit-check.html        world-kit smoke test
-tools/render.mjs      full-size render + render log (used by .github/workflows/render.yml)
+tools/render.mjs      full-size render + render log + budget gate (used by .github/workflows/render.yml)
+tools/gallery.py      merges the per-frame renders into the Pages gallery
 assets/               approved raster lockup and symbol
 ```
