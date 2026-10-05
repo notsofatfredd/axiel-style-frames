@@ -18,12 +18,16 @@ import { join } from 'node:path';
 const [RAW = 'g7/raw', BAKE = 'g7/bake', OUT = 'glb'] = process.argv.slice(2);
 const TMP = join(RAW, '..', 'tmp');   // outside OUT, which is published as is
 await mkdir(TMP, { recursive: true });
+await mkdir(OUT, { recursive: true });
 
 const MB = 1024 * 1024;
 // §7.2: 3D assets lazy-loaded. Desktop ships the High city fill, mobile the Mid (§10.1).
 const SETS = { desktop: { tiers: ['all', 'high'], budget: 12 * MB }, mobile: { tiers: ['all', 'mid'], budget: 6 * MB } };
 const BIN = (n) => join('node_modules', '.bin', process.platform === 'win32' ? n + '.cmd' : n);
-const run = (cmd, args) => execFileSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * MB }).toString();
+const run = (cmd, args) => {
+  try { return execFileSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * MB }).toString(); }
+  catch (e) { e.message = `${cmd} ${args.join(' ')} failed (${e.status}):\n${e.stdout ?? ''}${e.stderr ?? ''}`; throw e; }
+};
 const size = async (f) => (await stat(f)).size;
 
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
