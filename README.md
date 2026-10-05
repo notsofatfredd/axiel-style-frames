@@ -103,7 +103,7 @@ The renders use SwiftShader (software WebGL). Bloom, precision and anti-aliasing
 ## Logo source
 
 - SF-01 uses `assets/axiel-lockup-ink.png` (491×404 RGBA), cut from the approved raster `~/axiel/brand/references/axiel-logo-reference-01.jpeg`.
-- The seal (SF-08), the share card stand-in (SF-04 to SF-07) and the specimen stand-ins use `assets/axiel-symbol-ink.png`, cut from the same raster. The seal relief is generated in code from it (G2-3).
+- The seal (SF-08), the share card stand-in (SF-04 to SF-07) and specimen No. 003 use `assets/axiel-symbol-ink.png`, cut from the same raster. The seal relief is generated in code from it (G2-3).
 - The wordmark is never retyped, rebuilt in CSS or vectorised. A higher-resolution master is needed for production.
 
 ## Frame log
@@ -142,7 +142,7 @@ Copied from the frames' notes panels, which are the source of truth.
 - Sub-line "Strategy-first systems design." 16px Montserrat 400 in `--stone`, 34px under the hero line.
 
 **SF-02 Fall**
-- Twelve specimen niches as stand-ins (002 to 013): the AXIEL symbol, axiel.co.za as built, and agent graphs. The real twelve are chosen at G3 (G2-2: AXIEL's own only).
+- Twelve specimen niches (002 to 013), AXIEL's own work only (G2-2). The twelve are PROPOSED under [G3](#g3-hero-objects).
 - Strata thicknesses and the dressed panel behind each carved line (6.2 wide).
 - Daylight through the tear as the only key while the veins are dark.
 
@@ -337,15 +337,34 @@ Run 27, objects gate: pass.
 | 1 | Run 16 | 2c10410, a2cd27b → run 19 | The tear was a round blob with no crack stage: rebuilt as a crack that runs, then tears open. Seen whole, the cliff's veins aliased into a gold maze: veins now dim with pixel coverage and only five of twelve beds carry them (the carved-line beds and one deep bed). The seal had no back: flat back added (+160 tris). Fault building note names parts by geometry |
 | 2 | Runs 19, 21 | 16c9919, 98c75ba → run 21; b93bcad → run 22 | The open tear's edge read as a regular sawtooth: the fibre jag no longer scales with the opening. Merged the animations and dart. Held paper went black when lit from behind (the map panels in raise_lantern from t 0.6, the dart mid-fold): paper now takes an opt-in thin-sheet term (`thin` 0.45, PROPOSED) on the map and dart only, so the frames are unchanged |
 
-Not faults: the strata cliff is a thin slab seen side-on, fine for the face-on cameras it serves; the specimens are stand-ins; the city fill is small in its aerial tile because the tile includes the whole ground plane.
+Not faults: the strata cliff is a thin slab seen side-on, fine for the face-on cameras it serves; the city fill is small in its aerial tile because the tile includes the whole ground plane.
 
 **Cartographer animations and paper dart** (merged from the `g3-carto` side branch): `cartographer.html` now shows the eight animations (idle, walk, raise_lantern, unfurl_map, fold_dart, throw_dart, nod, walk_away) as hinge keyframes eased with the §5.1 curves, as strips and in a live player, plus K7 / K8 silhouette strips and the dart in its three states. CI fails the Cartographer job on fewer than 8 animations or a dart over 600 triangles.
 - `js/kit/dart.js`: the map folds into the dart on 4 panels and 4 hinges; states map, dart and gold. PROPOSED: keel 80°, wings 5° dihedral; gold glows at 0.35 so it reads hot without bloom.
 - `js/kit/ease.js`: the §5.1 easing constants (EASE_CAMERA, EASE_ARRIVE, EASE_DEPART, EASE_LINEAR, EASE_STAMP). PROPOSED home until they move into `core.js`.
 - The rig gains shoulder yaw hinges and carries the dart in the right hand; the default pose used by SF-04 and SF-07 is unchanged.
 
+**The twelve specimens (PROPOSED, `js/kit/specimens.js`).** AXIEL's own work only (G2-2), oldest at the bedrock. Ten are systems shown as their real runtime flow in brass: every node is a stage in that system's code, every tube a hand-off. Order follows the earliest evidence on disk (first commit, or file dates where a repo has no history). The cliff shows only the brass and "SPECIMEN No. 0xx".
+
+| No. | Specimen | Code | Earliest | Form | Flow (from the code) |
+|---|---|---|---|---|---|
+| 002 | ATLAS | none in catalog | 2026-07-17 | graph | Team → Audit → Strategy → Design → Review → Compile; Review loops back to Design or Strategy |
+| 003 | The AXIEL symbol | | UNKNOWN | symbol | the approved raster, gold on lacquer |
+| 004 | Autonomous Content Pipeline | ATL-26218 | 2026-08-06 | graph | Focus → Capture → Review → Split → Encode → Caption → Post → Feedback → Review |
+| 005 | SEO Agent | ATL-26220 | 2026-08-07 | graph | IMAP → Screenshot → Analyse → Operator email → Approval → Fix or Rejected |
+| 006 | axiel.co.za | | 2026-08-15 | site | nav, hero, the six /systems pages |
+| 007 | Workflow Agent | ATL-26222 | 2026-08-18 | graph | Capture → Classify → Tasks, Ideas, Blockers, Rules, Triangulation |
+| 008 | AXIEL Marketplace Demo | ATL-26241 | 2026-08-29 | graph | Store switcher → three stores (one age-gated) → Catalogue → Bag → Checkout |
+| 009 | Snipe Console | ATL-26244 | 2026-09-01 | graph | Config → Poll → Hash diff → Classify → Report; no change backs off and polls again |
+| 010 | DevOS | ATL-26245-B | 2026-09-02 | graph | Preflight → Specialist wave → Collaboration → Synthesis → Build + QA → Release check → Learnings → Preflight |
+| 011 | AXIEL Backend Template V2 | none in catalog | 2026-09-14 | graph | Service → Specialist → Time → Details → Deposit → Booked |
+| 012 | The Gallery Beneath | | 2026-10-02 | graph | Surface → Fall → ATLAS → INDEX → DEVOS → AMOS → Proof → Seal (this page) |
+| 013 | AXIEL Backend | none in catalog | 2026-10-03 | graph | Worker → Resolve site → Session → Book page → Availability → Create booking → Audit |
+
+Left out: ATL-005 Intake Response Agent (the only matching code was built for a client, G2-2). Flagged: 004 is matched to its code by the catalog description, and 003's date is UNKNOWN, so its place is PROPOSED. No catalog code is invented.
+
 **G3 blockers that need a person:**
-- **The twelve specimens:** the frames use stand-ins. The real twelve must be AXIEL's own work (G2-2), and only AXIEL can choose them.
+- **The twelve specimens:** PROPOSED below; the CD confirms the list.
 - **Core and seal:** CD approval of the Living Core (G2-7) and the wax seal relief (G2-3) as modelled.
 - **Cartographer map:** the forearm-versus-hand choice above (CD item 5) decides the rig the animations are built on.
 
@@ -532,9 +551,9 @@ The `assets` CI job turns the signed kits into the §7.1 assets. `assets.html?mo
 1. **Code, not Blender (P7-8).** The props are the signed kits exported, so there is nothing hand-modelled to approve separately. Confirm that is acceptable against §7.1 step 1.
 2. **AO only (P7-1)** instead of a full light bake. Compare the AO on/off pair in the gallery.
 3. **The strata cliff as a GLB (P7-4)**, so its lightmap has a surface to land on.
-4. **Specimens are still placeholders** (G3 open item); they ship through the pipeline so the budgets are real.
+4. **The twelve specimens** (PROPOSED at G3) ship as `strata_specimens_v1`.
 
-**G7 blockers that need a person:** the generic audit, the four calls above, and the real specimens.
+**G7 blockers that need a person:** the generic audit, the four calls above.
 
 ## Files
 

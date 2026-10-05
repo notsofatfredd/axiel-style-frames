@@ -150,16 +150,16 @@ try {
     row('Strata cliff + 12 specimens', all.tris, 45000, 'tris', all.calls, `cliff ${all.tris - sp.tris} + specimens ${sp.tris}`);
     turnaround('Strata cliff · 60 × 64', strata, { views: [['front', 0], ['¾', Math.PI / 4], ['side', Math.PI / 2]], size: [480, 480], elev: 0.05 });
     const sym = await loadImage('assets/axiel-symbol-ink.png');
-    const specRow = section('Specimens · one each (placeholders until the 12 real artefacts are chosen at G3)');
+    const specRow = section('Specimens · one each (the 12 PROPOSED at G3, js/kit/specimens.js)');
     const s = studio();
     let worst = 0;
     for (const sp1 of SPECIMENS) {
       const g = await makeSpecimens([sp1], sym), n = count(g);
       worst = Math.max(worst, n.tris);
-      row(`Specimen No. ${sp1.no} (${sp1.type})`, n.tris, 1500, 'tris', n.calls, 'placeholder artefact');
+      row(`Specimen No. ${sp1.no} (${sp1.type})`, n.tris, 1500, 'tris', n.calls, sp1.name + (sp1.code ? ` · ${sp1.code}` : ''));
       s.add(g); s.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(g);
-      shot(s, frameCam(box, Math.PI / 7, 0.1, 300, 300), 300, 300, specRow, `No. ${sp1.no} · ${sp1.type} · ${n.tris} tris`);
+      shot(s, frameCam(box, Math.PI / 7, 0.1, 300, 300), 300, 300, specRow, `No. ${sp1.no} · ${sp1.name} · ${n.tris} tris`);
       s.remove(g);
     }
   }

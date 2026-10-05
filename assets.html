@@ -69,7 +69,7 @@ const lm = (mesh, name) => { mesh.name = name; mesh.geometry.setAttribute('uv1',
 const strataParts = (s) => ({ cliff: s.userData.cliff, floor: s.children.find(c => c.isMesh && c !== s.userData.cliff) });
 const ASSETS = [
   { id: 'seal_wax_v1', scene: 'Seal', tier: 'all', elev: 0.2, size: [360, 360], build: () => makeSeal({}) },
-  { id: 'strata_specimens_v1', scene: 'ATLAS (Strata)', tier: 'all', elev: 0.1, size: [480, 300], note: 'the 12 PROPOSED stand-ins (real artefacts still UNKNOWN)',
+  { id: 'strata_specimens_v1', scene: 'ATLAS (Strata)', tier: 'all', elev: 0.1, size: [480, 300], note: 'the 12 PROPOSED at G3 (js/kit/specimens.js)',
     build: async () => makeSpecimens(SPECIMENS, await loadImage(SYMBOL_SRC)) },
   { id: 'strata_cliff_v1', scene: 'ATLAS (Strata)', tier: 'all', elev: 0.05, size: [400, 400], bake: 'strata',
     lightmaps: [{ mesh: 'strata-cliff', w: 1024, h: 1024, dist: 3 }, { mesh: 'strata-floor', w: 1024, h: 256, dist: 3 }],

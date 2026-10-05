@@ -1,4 +1,4 @@
-# PROPOSED decisions (G6 technical prototype, G7 assets)
+# PROPOSED decisions (G3 specimens, G6 technical prototype, G7 assets)
 
 Choices the build made where the protocol is silent or two sources disagree. Each needs the Creative Director's OK
 (or a change) before G6 is signed. Earlier gates list theirs in the README (G2 PROPOSED, G4 changed keys, G5 timing).
@@ -18,6 +18,14 @@ Choices the build made where the protocol is silent or two sources disagree. Eac
 | P6-11 | **fps bench rule:** scripted descent 0.58 to 0.79, 3 s hold (frozen), on to 0.82 and back to 0.58 at 40 s per unit of p (30 on phone); passes if the mean is at least 97% of the target and the 1% low at least 75%. | §6 gives the targets (60 desktop, 45 mobile) but not how to measure them. | `site/components/overlay/Bench.tsx`, `?bench=1` |
 | P6-12 | **Fonts load from Google Fonts by family name**, not next/font. | The canvas label and copy textures in the shared kits name 'Montserrat' and 'JetBrains Mono' directly; next/font renames the families. | `site/app/layout.tsx` |
 | P6-13 | **Review hosting:** the prototype is served from the existing GitHub Pages site at `/proto/`, noindex, for review only. | Not the production host: hosting is a human decision at G6 (README). | `.github/workflows/render.yml` |
+
+## G3 specimens
+
+| # | Decision | Why | Where |
+|---|---|---|---|
+| P3-S1 | **The twelve specimens** are ATLAS, the AXIEL symbol, the Content Pipeline (ATL-26218), the SEO Agent (ATL-26220), axiel.co.za, the Workflow Agent (ATL-26222), the Marketplace Demo (ATL-26241), Snipe Console (ATL-26244), DevOS (ATL-26245-B), the Backend Template V2, The Gallery Beneath and the AXIEL Backend (README, G3 table). | §3.2 asks for real AXIEL artefacts; G2-2 rules out client work. These are the own-work systems with code on disk. ATL-005 is left out because its only matching code was built for a client. | `js/kit/specimens.js` |
+| P3-S2 | **Systems are shown as their runtime flow in brass**, one node per stage named in the code, one tube per hand-off; no names on the cliff. | A flow is what the system is; it reads as a diagram without exposing internals, and the label stays the §3.2 "SPECIMEN No. 0xx". | `js/kit/strata.js` (graphParts) |
+| P3-S3 | **Order by earliest evidence on disk**, oldest at the bedrock. The symbol's date is UNKNOWN, so it sits at 003, straight above ATLAS. The Content Pipeline is matched to its code by the catalog description. | The cliff is a record of time; no date is invented. | `js/kit/specimens.js` |
 
 ## G7 assets
 

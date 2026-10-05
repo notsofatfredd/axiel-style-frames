@@ -3,13 +3,14 @@
  * 12 layers, oldest at the bottom, alternating --graphite / --stone, each 3–8 thick.
  * Gold-leaf veins with an emissive mask (uVein: dark 0 → ignited 1). Carved lines cut face-on [F7][M1]:
  *   y −40 "Everything stands" · y −22 "on ATLAS." · y −6 "ATLAS"
- * 12 embedded specimens, one per ~5 units of depth. AXIEL's own work only [G2-2]; which 12 is chosen at G3,
- * so these are PROPOSED stand-ins built from real AXIEL material (the official symbol, the live site structure).
+ * 12 embedded specimens, one per ~5 units of depth. AXIEL's own work only [G2-2]: the twelve in js/kit/specimens.js
+ * (PROPOSED at G3), ten systems as their real flows in brass, the official symbol, the live site structure.
  * Budget: cliff + specimens ≤ 45k tris.
  */
 import { THREE, HEX, col, rng, detailMat, canvas, canvasTex, setFont, loadImage, tinted } from '../core.js';
 import { inlayMat, labelMask, glsl, SITE } from './city.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { ARTEFACTS } from './specimens.js';
 
 export const CLIFF = { z: -6, top: 0, bottom: -64, x0: -30, x1: 30 };
 // layer thicknesses from the top down (sum 64), parity: even = graphite, odd = stone
@@ -22,12 +23,11 @@ export const LINES = [
 ];
 const PANEL_W = 6.2, STRIP = 1.2, CPPU = 300;
 
-/* specimens: [type, x, y] · numbered from the bedrock up (PROPOSED: real numbering chosen at G3) */
+/* specimens: the niche positions, numbered from the bedrock up; what sits in each is js/kit/specimens.js (PROPOSED, G3) */
 export const SPECIMENS = [
-  ['graph', -3.6, -60], ['site', 3.4, -55], ['symbol', -3.8, -50], ['graph', 3.6, -45],
-  ['site', -3.6, -35.5], ['symbol', 3.6, -30.5], ['site', -3.7, -23.2], ['symbol', 3.6, -20.8],
-  ['graph', -3.5, -15.5], ['site', 3.5, -11], ['symbol', -3.6, -9.5], ['graph', 3.5, -2.5],
-].map(([type, x, y], i) => ({ type, x, y, no: String(i + 2).padStart(3, '0') }));
+  [-3.6, -60], [3.4, -55], [-3.8, -50], [3.6, -45], [-3.6, -35.5], [3.6, -30.5],
+  [-3.7, -23.2], [3.6, -20.8], [-3.5, -15.5], [3.5, -11], [-3.6, -9.5], [3.5, -2.5],
+].map(([x, y], i) => ({ ...ARTEFACTS[i], x, y, no: String(i + 2).padStart(3, '0') }));
 const SPEC_HALF = { symbol: [0.8, 0.95], site: [1.0, 0.8], graph: [0.95, 0.85] };
 
 /* ---------- CPU noise for the displaced face ---------- */
@@ -193,7 +193,7 @@ export async function makeStrata(o = {}) {
   return g;
 }
 
-/* ---------- specimens (PROPOSED stand-ins, G3 chooses the real 12) ----------
+/* ---------- specimens (js/kit/specimens.js, PROPOSED at G3) ----------
    Built merged across all 12, one mesh per material, so the whole set costs 7 draw calls
    (niches, stone sides, label atlas, symbol faces, site faces, brass graphs, graph backs). */
 // 1.66 wide: holds "SPECIMEN No. 0xx" at cap 0.09 inside the narrowest niche (symbol, 1.8)
@@ -254,15 +254,20 @@ function labelAtlas(list) {
   rows.forEach((r, i) => x.drawImage(r, 0, i * r.height));
   return c;
 }
-/* an agent workflow as a brass node graph (stand-in: real graph chosen at G3), non-indexed parts */
-function graphParts(no) {
-  const r = rng(parseInt(no, 10) * 31);
-  const nodes = [];
-  for (let i = 0; i < 6; i++) nodes.push(new THREE.Vector3(-0.7 + (i % 3) * 0.7 + r.range(-0.12, 0.12), 0.5 - Math.floor(i / 3) * 0.6 + r.range(-0.1, 0.1) + 0.1, 0.12));
+/* a system's real flow (js/kit/specimens.js) as a brass node graph on the 1.7 × 1.2 back plate, non-indexed parts.
+   Grid [col, row] → 0.44 × 0.4 cells, centred on the plate; the edges are open tubes whose ends sit inside the nodes. */
+function graphParts(s) {
+  const cs = s.nodes.map(n => n[1]), rs = s.nodes.map(n => n[2]);
+  const cx = (Math.min(...cs) + Math.max(...cs)) / 2, cy = (Math.min(...rs) + Math.max(...rs)) / 2;
+  const nodes = s.nodes.map(([, c, r]) => new THREE.Vector3((c - cx) * 0.44, 0.12 - (r - cy) * 0.4, 0.12));
   const parts = nodes.map(p => new THREE.IcosahedronGeometry(0.075, 1).translate(p.x, p.y, p.z));
-  for (const [a, b] of [[0, 1], [1, 2], [0, 4], [1, 4], [2, 5], [4, 5], [3, 4]]) {
+  const seen = new Set();
+  for (const [a, b] of s.edges) {
+    const k = Math.min(a, b) + ':' + Math.max(a, b);
+    if (seen.has(k)) continue;                       // a loop back over the same pair is one tube
+    seen.add(k);
     const A = nodes[a], B = nodes[b], d = B.clone().sub(A), L = d.length();
-    const cyl = new THREE.CylinderGeometry(0.012, 0.012, L, 6, 1).toNonIndexed();
+    const cyl = new THREE.CylinderGeometry(0.012, 0.012, L, 6, 1, true).toNonIndexed();
     cyl.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
     cyl.translate((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2);
     parts.push(cyl);
@@ -278,7 +283,7 @@ export async function makeSpecimens(list, sym) {   // exported for the G3 object
     // niche: a dark recess cut into the dressed stone
     B.niche.push(at(new THREE.BoxGeometry(2 * hx + 0.2, 2 * hy + 0.2, 0.3), 0, 0, -0.14));
     if (s.type === 'graph') {
-      B.brass.push(...graphParts(s.no).map(p => at(p)));
+      B.brass.push(...graphParts(s).map(p => at(p)));
       B.back.push(at(new THREE.BoxGeometry(1.7, 1.2, 0.06), 0, 0.12, 0.02));
     } else {
       const [w, h, d] = TAB[s.type];

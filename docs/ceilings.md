@@ -20,7 +20,7 @@ hidden from a gate: each line is also a human or later-phase item in the README.
 
 | Item | State | Lifts at |
 |---|---|---|
-| Specimens | **Placeholders.** `strata_specimens_v1` is the 12 PROPOSED stand-ins from G3; the real artefacts are still UNKNOWN. The pipeline ships them so the budgets and the bake are real. | When the real specimens exist (G3 open item) |
+| Specimens | **PROPOSED list.** `strata_specimens_v1` ships the twelve in `js/kit/specimens.js` (P3-S1 to P3-S3). A change to the list is a data edit and a re-export; budgets hold for any flow up to 8 nodes. | When the CD confirms or changes the list |
 | Modelling tool | **The kits are the models.** Blender is used for the AO bake only, headless in CI; nothing is hand-modelled, so there is no .blend to keep in sync. | CD (P7-8) |
 | Turntable vs the style frame | **Compared against the kit render, not the frame PNG.** The kits render the frames, so a kit match is a frame match for the object; whole-frame comparisons are the G11 visual suite. | G11 |
 | Code-native objects | The Cartographer, the Core, the dart and the seal string stay code-native (§7.1); their budgets are the G3 objects page. | n/a |
