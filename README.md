@@ -55,6 +55,8 @@ How it avoids failing:
 | A frame fails on any page error, console error, HTTP error or failed load (only the browser's favicon request is excused) | Missing assets or broken scripts passing quietly |
 | Pages deploys only when every frame passes on a full run | A broken or partial set replacing the public link |
 
+Proven on 2026-10-05 (run 10, throwaway branch, since deleted): one deliberate fault per check. SF-02 hung and timed out, SF-08 failed at 214 calls > 150, SF-05 failed on an HTTP 404 for a missing asset, and SF-07b failed as a blank 3D layer under live copy. The other five frames passed, the gallery still built, and the deploy was skipped, so the public link kept run 9.
+
 A push cancels an older run still going on the same branch. The repository is public, so standard runner minutes cost nothing; a billing budget cap is only a safety net.
 
 The renders use SwiftShader (software WebGL). Bloom, precision and anti-aliasing can differ on a real GPU, so compare at least one frame on real hardware before sign-off.
