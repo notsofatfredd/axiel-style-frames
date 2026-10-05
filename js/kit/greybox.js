@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { KEYS, SCENES, cameraAt } from '../camera.js';
 import { plots, LAYOUT, FB } from './city.js';
 import { CLIFF, LINES } from './strata.js';
-import { WALL } from './paperwall.js';
+import { WALL, tearLocal, tearWorld } from './paperwall.js';
 import { makeCore, CORE } from './livingcore.js';
 import { beat, scrub } from '../timeline.js';
 
@@ -47,10 +47,10 @@ function edge(y, u, sd) {   // |dx| of the outline on side sd at height y
   const fibre = (0.09 * Math.sin(9.7 * y + 3 * sd) + 0.05 * Math.sin(23.1 * y + 1 + sd) + 0.025 * Math.sin(51 * y + 2 * sd)) * Math.min(hw, 1);
   return hw * Math.pow(Math.max(1 - ty * ty, 0), 0.6) * bulge + fibre;
 }
-/* signed distance to the outline as the shader approximates it: < 0 is torn away (an opening) */
-export function tearD(x, y, u) {
+/* signed distance to the outline as the shader approximates it: < 0 is torn away (an opening). x, y on the wall */
+export function tearD(wx, wy, u) {
   if (u <= 0) return Infinity;
-  const dx = x - crackX(y), sd = Math.sign(dx) || 1;
+  const [x, y] = tearLocal(wx, wy), dx = x - crackX(y), sd = Math.sign(dx) || 1;
   return Math.max(Math.abs(dx) - edge(y, u, sd), Math.abs(y) - tearHL(u));
 }
 export function tearPolygon(u, n = 160) {
@@ -60,7 +60,7 @@ export function tearPolygon(u, n = 160) {
     const y = -hl + 2 * hl * i / n, c = crackX(y);
     R.push([c + Math.max(edge(y, u, 1), 0.002), y]); L.push([c - Math.max(edge(y, u, -1), 0.002), y]);
   }
-  return [...R, ...L.reverse()];
+  return [...R, ...L.reverse()].map(([x, y]) => tearWorld(x, y));
 }
 
 export function cartoAt(p) {

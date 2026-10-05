@@ -10,6 +10,13 @@
 import { THREE, MAT } from '../core.js';
 
 export const WALL = { w: 120, h: 320, cy: 150, tearHL: 4.2, tearHW: 2.4 };   // tear half-length (along the crack) and half-width when fully open
+// G8 (PROPOSED): the tear sits under the copy and runs across the sheet, along SF-01's crack line (§5.3: the crack
+// grows below the hero line, never crossing a letter). Centre (0, -1.0), crack turned 90° to run along x. Both camera
+// crossings (down at p 0.0825, back at 0.935 after K19 was lowered) clear the torn edge by 1.22 or more (G4 check).
+export const TEAR = { x: 0, y: -1.0, rot: Math.PI / 2 };
+const TC = Math.cos(TEAR.rot), TS = Math.sin(TEAR.rot);
+export const tearLocal = (x, y) => { const dx = x - TEAR.x, dy = y - TEAR.y; return [TC * dx + TS * dy, -TS * dx + TC * dy]; };
+export const tearWorld = (lx, ly) => [TEAR.x + TC * lx - TS * ly, TEAR.y + TS * lx + TC * ly];
 const SEG = 128, RINGS = 72, NEAR = 7.5, NEAR_T = 0.6;
 
 // distance from the origin to the sheet edge along angle a
@@ -49,6 +56,8 @@ export function wallGeometry() {
 // the tear: a crack that runs first, then paper torn open along it (each side jagged on its own)
 const TEAR_GLSL = /* glsl */`
   uniform float uOpen; varying vec2 vLoc;
+  const vec2 TEAR_C = vec2(${TEAR.x.toFixed(3)}, ${TEAR.y.toFixed(3)});
+  const mat2 TEAR_R = mat2(${TC.toFixed(6)}, ${(-TS).toFixed(6)}, ${TS.toFixed(6)}, ${TC.toFixed(6)});   // world → tear frame (columns)
   // centre line of the crack: x offset at height y, one jagged line
   float crackX(float y) { return 0.22 * sin(1.7 * y + 1.0) + 0.11 * sin(4.3 * y + 2.0) + 0.045 * sin(11.0 * y + 0.5) + 0.02 * sin(29.0 * y); }
   // approximate signed distance to the tear outline (< 0 is torn away)
@@ -74,11 +83,11 @@ export function makePaperWall(o = {}) {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>\n${TEAR_GLSL}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vLoc = position.xy;
-        { float w = 1.0 - smoothstep(0.0, 2.2, max(tearD(position.xy, uOpen), 0.0)); w *= w * smoothstep(0.2, 1.0, uOpen);
-          vec2 away = normalize(vec2(position.x - crackX(position.y), 0.25 * position.y) + vec2(1e-4, 0.0));
+        vLoc = TEAR_R * (position.xy - TEAR_C);                          // tear frame: the crack runs along vLoc.y
+        { float w = 1.0 - smoothstep(0.0, 2.2, max(tearD(vLoc, uOpen), 0.0)); w *= w * smoothstep(0.2, 1.0, uOpen);
+          vec2 away = normalize(vec2(vLoc.x - crackX(vLoc.y), 0.25 * vLoc.y) + vec2(1e-4, 0.0));
           transformed.z -= 1.4 * w;                                       // the lip curls into the world (−z) once it tears open
-          transformed.xy += away * 0.35 * w;                              // and peels back from the crack
+          transformed.xy += (away * TEAR_R) * 0.35 * w;                   // and peels back from the crack (back to world axes)
         }`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>\n${TEAR_GLSL}`)

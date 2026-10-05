@@ -37,7 +37,7 @@ export const KEYS = [
   ['K17b', 0.88, [6, 6, -23.5], [-6, 5, -18], 54, 'Turn back; the look-at sweeps sideways', [[5, 6, -23], [-6, 5, -18]], 'G4: pulled back onto the street (protocol x 10 sat in the alley and the arc cut the shop and brochure plots)'],
   ['K18', 0.90, [6, 5, -14], [6, 4, 0], 54, 'The ranked result on the back of the paper wall', [[0, 2.6, -17.2], [0, 1.6, 0]], 'SF-07b: desktop slid to x 6 (protocol x 0); phone backed off. G4: both 2 / 1.3 closer so the description reads 18 / 14 px'],
   ['K18b', 0.92, [0, 2, -7], [0, 0.5, 0], 60, 'Approach the tear from the lip', null, 'G4: raised 0.5 so the descent clears the cliff lip by 1.5'],
-  ['K19', 0.94, [0, 0.4, 2.5], [0, 0.4, 12], 60, 'Through the tear; the tear heals behind'],
+  ['K19', 0.94, [0, -1.1, 2.5], [0, -1.1, 12], 60, 'Through the tear; the tear heals behind', null, 'G8: lowered 1.5 (protocol y 0.4) with the tear, which moved under the copy (js/kit/paperwall.js TEAR); the return crossing clears the torn edge by 1.59 desktop, 1.98 phone'],
   ['K19b', 0.96, [0, 0, 8], [10, 0, 8], 50, 'Mid turn-around', null, 'G5: look target 4 → 10 away (same ray), level with K19 and K20; the turn-around peak 215 → 135°/s desktop'],
   ['K20', 0.98, [0, 0, 10], [0, 0, 0], 40, 'Locked on the seal. Hold to 1.00'],
 ].map(([key, p, pos, look, fov, note, phone = null, g2 = null]) => ({ key, p, pos, look, fov, note, phone, g2 }));
