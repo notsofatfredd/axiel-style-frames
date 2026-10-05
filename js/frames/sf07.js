@@ -22,6 +22,7 @@ export default {
     'The façade still wet from the AMOS rain (continuity from SF-06).',
     'Cartographer at (−1.5, 0, −33), out of frame left, beam on the window.',
     'Phone key: K17 backed off along its axis to distance 14.5, camera (6.37, 4.81, −24.75).',
+    'Desktop key: K17 looks at (4, 5.2, −39), not (4, 6, −39), so the 4.2 × 1.55 nameplate sits whole above the frame edge (bottom ≈ 756 of 810; at y 6 the email line was cut).',
   ],
   unknown: [
     'Card legibility: cap 0.25 reads ≈ 16px at 1440×810 and ≈ 18px at 1440×900 (the §7 test size); phone ≈ 14.3px. Both meet the minimum only at their test sizes.',
@@ -47,8 +48,8 @@ export default {
     await placeCartographer(scene, [-1.5, 0, -33], [win[0], win[2]], win, { shadowMap: tier === 'mid' ? 1024 : 2048, aim: { intensity: 340 } });
     const camera = vp.phone
       ? makeCamera(54, [6.37, 4.81, -24.75], [4, 6, -39])
-      : makeCamera(54, [6, 5, -27], [4, 6, -39]);
-    return { scene, camera, camNote: vp.phone ? 'Phone: K17 backed off along its axis to distance 14.5 (PROPOSED).' : null };
+      : makeCamera(54, [6, 5, -27], [4, 5.2, -39]); // look lowered from y 6: the larger nameplate's bottom edge fell at y ≈ 810 of 810
+    return { scene, camera, camNote: vp.phone ? 'Phone: K17 backed off along its axis to distance 14.5 (PROPOSED).' : 'K17 look lowered to y 5.2 so the nameplate stays whole (PROPOSED).' };
   },
   overlay(ctx, vp) { sceneCounter(ctx, vp, 7, 'PROOF', HEX.bone); },
 };
