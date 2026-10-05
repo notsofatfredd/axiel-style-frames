@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Hero Objects Check</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0B0B0C; --graphite:#1D1D1F; --stone:#6A675F; --bone:#D6D2C8; --paper:#F2EFE9; --gold:#C9A35B; --red:#C2412D; --pass:#9FC2A0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--bone); font: 400 14px/1.5 Montserrat, sans-serif; padding: 20px 16px 40px; }
+  h1 { margin: 0 0 4px; font-weight: 300; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; }
+  h1 b { color: var(--gold); font-weight: 500; }
+  h2 { font: 500 11px "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--stone); margin: 28px 0 8px; }
+  p { margin: 0; max-width: 820px; color: var(--paper); }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px; margin-bottom: 8px; }
+  figure { margin: 0; } canvas { width: 100%; height: auto; display: block; background: var(--graphite); }
+  figcaption { font: 400 11px "JetBrains Mono", monospace; color: var(--stone); margin-top: 4px; }
+  .tbl { overflow-x: auto; }
+  table { border-collapse: collapse; font: 400 12px/1.5 "JetBrains Mono", monospace; min-width: 640px; }
+  th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--graphite); vertical-align: top; }
+  th { color: var(--stone); font-weight: 500; }
+  .PASS { color: var(--pass); } .FAIL { color: var(--red); } .CEILING { color: var(--gold); }
+  pre { font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--bone); background: var(--graphite); padding: 12px; overflow-x: auto; white-space: pre-wrap; }
+  .err { color: var(--red); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<h1><b>AXIEL</b> · G3 · Hero objects</h1>
+<p>Every §3.2 hero object built by its production kit, counted against its budget and shown as a lit turnaround (front · side · back · three-quarter). Neutral studio light, not the scene light: this checks form and budget. The style frames check the look. The Cartographer has its own page (silhouette test, animations).</p>
+<h2>Budgets (§3.2, §3.3)</h2>
+<div class="tbl"><table id="budget"><thead><tr><th>Object</th><th>Measured</th><th>Budget</th><th>Result</th><th>Draw calls</th><th>Notes</th></tr></thead><tbody></tbody></table></div>
+<div id="turns"></div>
+<h2>Numbers</h2>
+<pre id="stats">Building…</pre>
+<script type="module">
+import { THREE, col, tokenEnv } from './js/core.js';
+import { loadImage } from './js/paper.js';
+import { makePaperWall, WALL } from './js/kit/paperwall.js';
+import { makeStrata, makeSpecimens, SPECIMENS } from './js/kit/strata.js';
+import { makeCity, makeGround, makeFaultBuilding } from './js/kit/city.js';
+import { makeCore } from './js/kit/livingcore.js';
+import { makeSeal } from './js/kit/seal.js';
+import { makeCartographer } from './js/kit/cartographer.js';
+
+const out = { ok: false, rows: [], errors: [] };
+window.__objects = out;
+const origErr = console.error.bind(console);
+console.error = (...a) => { out.errors.push(a.map(String).join(' ').slice(0, 400)); origErr(...a); };
+
+// triangles as drawn (instanced meshes count every instance), draw calls, instances
+const count = (root) => {
+  let tris = 0, calls = 0, instances = 0;
+  root.traverse(o => {
+    if (!o.isMesh || o.visible === false) return;
+    const g = o.geometry, n = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+    const k = o.isInstancedMesh ? o.count : 1;
+    tris += n * k; calls += Array.isArray(o.material) ? Math.max(1, g.groups.length) : 1;
+    if (o.isInstancedMesh) instances += o.count;
+  });
+  return { tris: Math.round(tris), calls, instances };
+};
+
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1);
+R.outputColorSpace = THREE.SRGBColorSpace;
+R.toneMapping = THREE.NeutralToneMapping;
+const ENV = tokenEnv(R, ['bone', 'stone', 'ink']);
+await document.fonts.ready;
+
+const studio = () => {
+  const s = new THREE.Scene(); s.background = col('graphite'); s.environment = ENV;
+  s.add(new THREE.HemisphereLight(col('bone'), col('ink'), 0.7));
+  const k = new THREE.DirectionalLight(col('bone'), Math.PI * 0.9); k.position.set(-3, 5, 4); s.add(k);
+  const r = new THREE.DirectionalLight(col('bone'), Math.PI * 0.25); r.position.set(4, 2, -5); s.add(r);
+  return s;
+};
+const fig = (holder, c, cap) => {
+  const f = document.createElement('figure'); f.append(c);
+  const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc);
+  holder.append(f);
+};
+const shot = (scene, cam, w, h, holder, cap) => {
+  R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+  R.render(scene, cam);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(R.domElement, 0, 0);
+  fig(holder, c, cap);
+};
+// frame a bounding sphere from a yaw (0 = front, looking at the +z face) and an elevation
+const frameCam = (box, yaw, elev, w, h, o = {}) => {
+  const sph = box.getBoundingSphere(new THREE.Sphere()), c = o.target ? new THREE.Vector3(...o.target) : sph.center;
+  const fov = o.fov ?? 30, vf = fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * w / h);
+  const d = (o.radius ?? sph.radius) / Math.sin(Math.min(vf, hf) / 2) * (o.pad ?? 1.04);
+  const cam = new THREE.PerspectiveCamera(fov, w / h, d / 200, d * 4);
+  cam.position.set(c.x + Math.sin(yaw) * Math.cos(elev) * d, c.y + Math.sin(elev) * d, c.z + Math.cos(yaw) * Math.cos(elev) * d);
+  cam.lookAt(c);
+  return cam;
+};
+const VIEWS = [['front', 0], ['side', Math.PI / 2], ['back', Math.PI], ['¾', Math.PI / 4]];
+const turns = document.getElementById('turns');
+const section = (title) => {
+  const h = document.createElement('h2'); h.textContent = title; turns.append(h);
+  const row = document.createElement('div'); row.className = 'row'; turns.append(row);
+  return row;
+};
+const turnaround = (title, root, o = {}) => {
+  const row = section(title), s = studio(); s.add(root); s.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root), [w, h] = o.size ?? [360, 480];
+  for (const [name, yaw] of o.views ?? VIEWS) shot(s, frameCam(box, yaw, o.elev ?? 0.12, w, h, o), w, h, row, `${title} · ${name}`);
+  s.remove(root);
+  return row;
+};
+// one row in the budget table; `ceiling` documents an honest over-budget (§2.5 rule 5) instead of failing the gate
+const row = (name, value, budget, unit, calls, note = '', ceiling = null) => {
+  const result = value <= budget ? 'PASS' : ceiling ? 'CEILING' : 'FAIL';
+  out.rows.push({ name, value, budget, unit, result, calls, note: ceiling ? `${note} ${ceiling}`.trim() : note });
+};
+
+try {
+  // ---------- paper wall (20k) ----------
+  {
+    const wall = makePaperWall({ open: 0 });
+    const n = count(wall);
+    row('Paper wall', n.tris, 20000, 'tris', n.calls, 'one mesh for crack → hole: tear is shader displacement + alpha mask (uOpen)');
+    turnaround('Paper wall · 120 × 320 · whole sheet', wall, { views: [['front', 0], ['¾', Math.PI / 4]], size: [300, 480], elev: 0 });
+    const tearRow = section('Paper wall · the tear (radius 3) as it opens');
+    const s = studio(); s.add(wall);
+    const box = new THREE.Box3(new THREE.Vector3(-6, -6, -2), new THREE.Vector3(6, 6, 1));
+    for (const [open, yaw, name] of [[0, 0, 'crack · open 0 · front'], [0.5, 0, 'open 0.5 · front'], [1, 0, 'open 1 · front'], [1, Math.PI * 0.42, 'open 1 · side, lip curls in'], [1, Math.PI, 'open 1 · back (the horizon)']]) {
+      wall.userData.uniforms.uOpen.value = open;
+      shot(s, frameCam(box, yaw, 0.08, 360, 360, { target: [0, 0, 0], radius: 6 }), 360, 360, tearRow, name);
+    }
+  }
+
+  // ---------- strata cliff + specimens (45k total, 1.5k each) ----------
+  {
+    const strata = await makeStrata({ vein: 0.6, carveGlow: 0.4 });
+    const all = count(strata);
+    const specs = strata.children.find(c => c.userData.list) ?? null;
+    const sp = specs ? count(specs) : { tris: 0, calls: 0 };
+    row('Strata cliff + 12 specimens', all.tris, 45000, 'tris', all.calls, `cliff ${all.tris - sp.tris} + specimens ${sp.tris}`);
+    turnaround('Strata cliff · 60 × 64', strata, { views: [['front', 0], ['¾', Math.PI / 4], ['side', Math.PI / 2]], size: [480, 480], elev: 0.05 });
+    const sym = await loadImage('assets/axiel-symbol-ink.png');
+    const specRow = section('Specimens · one each (placeholders until the 12 real artefacts are chosen at G3)');
+    const s = studio();
+    let worst = 0;
+    for (const sp1 of SPECIMENS) {
+      const g = await makeSpecimens([sp1], sym), n = count(g);
+      worst = Math.max(worst, n.tris);
+      row(`Specimen No. ${sp1.no} (${sp1.type})`, n.tris, 1500, 'tris', n.calls, 'placeholder artefact');
+      s.add(g); s.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(g);
+      shot(s, frameCam(box, Math.PI / 7, 0.1, 300, 300), 300, 300, specRow, `No. ${sp1.no} · ${sp1.type} · ${n.tris} tris`);
+      s.remove(g);
+    }
+  }
+
+  // ---------- city (≤ 400 instances, hero buildings unique) ----------
+  {
+    const city = makeCity({ tier: 'high' }), n = count(city);
+    const mid = count(makeCity({ tier: 'mid' }));
+    row('City fill (High)', n.instances, 400, 'instances', n.calls, `${n.tris.toLocaleString('en')} tris as drawn; Mid tier ${mid.instances} instances`);
+    const g = new THREE.Group(); g.add(makeGround({}), city);
+    turnaround('City · fill buildings', g, { views: [['aerial front', 0], ['aerial ¾', Math.PI / 4]], size: [640, 360], elev: 0.5, pad: 0.8 });
+  }
+
+  // ---------- fault building (2k per state) ----------
+  for (const state of ['empty', 'repaired']) {
+    const fb = await makeFaultBuilding({ state, wet: state === 'repaired', cardGlow: state === 'repaired' ? 0.26 : 0, hiGlow: state === 'repaired' ? 1 : 0 });
+    const n = count(fb);
+    // the biggest contributors, so an over-budget state says where the triangles are
+    const parts = [];
+    fb.traverse(o => { if (o.isMesh) parts.push([o.name || o.material?.type || 'mesh', o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3]); });
+    parts.sort((a, b) => b[1] - a[1]);
+    row(`Fault building · ${state}`, n.tris, 2000, 'tris', n.calls, 'largest: ' + parts.slice(0, 3).map(([k, t]) => `${k} ${Math.round(t)}`).join(', '));
+    turnaround(`Fault building · ${state}`, fb, { size: [360, 480] });
+  }
+
+  // ---------- Living Core (30k) ----------
+  for (const state of ['asleep', 'awake']) {
+    const core = makeCore({ state }), n = count(core);
+    row(`Living Core · ${state}`, n.tris, 30000, 'tris', n.calls, 'includes the stone plinth (G2-7)');
+    turnaround(`Living Core · ${state} · on its plinth`, core, { size: [360, 480] });
+  }
+
+  // ---------- wax seal (15k) ----------
+  {
+    const seal = await makeSeal({}), n = count(seal);
+    row('Wax seal', n.tris, 15000, 'tris', n.calls, 'generated from the official symbol raster (G2-3)');
+    turnaround('Wax seal', seal, { size: [360, 360], elev: 0.2 });
+  }
+
+  // ---------- Cartographer (10k): counted here, shown on its own page ----------
+  {
+    const rig = await makeCartographer({ pose: 'walk' }), t = rig.tris();
+    row('Cartographer', t, 10000, 'tris', count(rig.root).calls, `${rig.hinges} hinges; turnaround + animations on cartographer.html`);
+  }
+
+  // ---------- paper dart (600): in the Cartographer branch until it merges ----------
+  out.pending = ['Paper dart (600 tris): built with the Cartographer animations, counted here once that branch merges.'];
+
+  const tb = document.querySelector('#budget tbody');
+  for (const r of out.rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.name}</td><td>${r.value.toLocaleString('en')} ${r.unit}</td><td>≤ ${r.budget.toLocaleString('en')}</td><td class="${r.result}">${r.result}</td><td>${r.calls}</td><td></td>`;
+    tr.lastChild.textContent = r.note;
+    tb.append(tr);
+  }
+  out.ok = true;
+  out.fail = out.rows.filter(r => r.result === 'FAIL').map(r => `${r.name} ${r.value} > ${r.budget}`);
+  document.getElementById('stats').textContent = JSON.stringify({ rows: out.rows.length, fail: out.fail, pending: out.pending, errors: out.errors }, null, 2);
+} catch (e) {
+  out.errors.push(String(e && e.stack || e));
+  const el = document.getElementById('stats'); el.className = 'err'; el.textContent = String(e && e.stack || e);
+} finally { out.done = true; }
+</script>
+</body>
+</html>

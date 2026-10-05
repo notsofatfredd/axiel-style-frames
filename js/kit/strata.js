@@ -266,7 +266,7 @@ function graphParts(no) {
   return parts.map(p => (p.index ? p.toNonIndexed() : p));
 }
 
-async function makeSpecimens(list, sym) {
+export async function makeSpecimens(list, sym) {   // exported for the G3 objects page (one specimen at a time)
   const B = { niche: [], sides: [], label: [], symbol: [], site: [], brass: [], back: [] };
   list.forEach((s, i) => {
     const at = (geo, x = 0, y = 0, z = 0) => geo.translate(s.x + x, s.y + y, CLIFF.z + 0.08 + z);

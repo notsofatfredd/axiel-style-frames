@@ -12,7 +12,7 @@ on:
         required: false
         default: ''
   push:
-    paths: ['js/**', 'index.html', 'cartographer.html', 'assets/**', 'tools/**', '.github/workflows/render.yml']
+    paths: ['js/**', 'index.html', 'cartographer.html', 'objects.html', 'assets/**', 'tools/**', '.github/workflows/render.yml']
 
 # Runners pinned to ubuntu-24.04: ubuntu-latest moves to Ubuntu 26 on 2026-10-19, which the pinned
 # Playwright's --with-deps install may not support. Move both together, on purpose, in one push.
@@ -92,8 +92,33 @@ jobs:
           path: carto/
           retention-days: 7
 
+  objects:
+    # G3 hero objects: every §3.2 object counted against its budget, lit turnarounds as PNGs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium (retries network blips)
+        run: |
+          for i in 1 2 3; do npm i --no-save --no-package-lock playwright@1.48.2 && break; echo "retry $i"; sleep 15; done
+          for i in 1 2 3; do npx playwright install --with-deps chromium && break; echo "retry $i"; sleep 15; done
+      - name: Serve and capture objects.html
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 > /dev/null 2>&1 &
+          for i in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8000/objects.html && break; sleep 1; done
+          node tools/objects.mjs http://127.0.0.1:8000/objects.html objects
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: objects
+          path: objects/
+          retention-days: 7
+
   collect:
-    needs: [render, carto]
+    needs: [render, carto, objects]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -111,10 +136,15 @@ jobs:
         with:
           name: carto
           path: carto
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: objects
+          path: objects
       - name: Build gallery
         run: |
           pip install --quiet pillow
-          python tools/gallery.py parts gallery ${{ github.run_number }} carto
+          python tools/gallery.py parts gallery ${{ github.run_number }} carto objects
           sed '1s/^\xEF\xBB\xBF//' gallery/render-log.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
@@ -126,7 +156,7 @@ jobs:
     # default success(): skipped if any frame failed or went over budget, so Pages keeps the last good set.
     # Only the gallery branch deploys (repo variable GALLERY_BRANCH, else worktree-g2-v14): side branches
     # render and upload artifacts for review without overwriting the public gallery.
-    needs: [render, carto, collect]
+    needs: [render, carto, objects, collect]
     if: ${{ success() && !github.event.inputs.frames && github.ref_name == (vars.GALLERY_BRANCH || 'worktree-g2-v14') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10

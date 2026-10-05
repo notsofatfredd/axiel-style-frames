@@ -1,8 +1,9 @@
 """Build the review gallery from the per-frame render artifacts.
 
-Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir]
+Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir]
   parts_dir: one folder per frame job, each with PNGs and render-log.json (from tools/render.mjs)
   carto_dir: optional, the Cartographer silhouette test from tools/carto.mjs (PNGs + carto.json)
+  objects_dir: optional, the G3 hero objects from tools/objects.mjs (PNGs + objects.json)
   out_dir:   writes full/*.png, thumbs/*.jpg, render-log.md, render-log.json, index.html
 
 The gallery shows finished PNGs only, so viewing it never renders 3D on the viewer's device.
@@ -21,7 +22,7 @@ SCENE = {'SF-01': 'Surface', 'SF-02': 'Fall', 'SF-03': 'ATLAS', 'SF-04': 'INDEX'
 VARIANT = [('high', 'desktop'), ('mid', 'desktop'), ('high', 'phone'), ('mid', 'phone')]
 
 
-def main(parts, out, run, carto=None):
+def main(parts, out, run, carto=None, objects=None):
     parts, out = Path(parts), Path(out)
     (out / 'full').mkdir(parents=True, exist_ok=True)
     (out / 'thumbs').mkdir(exist_ok=True)
@@ -88,6 +89,22 @@ def main(parts, out, run, carto=None):
         nums = f"{c.get('tris', '?')} triangles (≤ 10 000) · {c.get('hinges', '?')} hinges (≤ 30)" + (f" · GATE: {html.escape(c['gate'])}" if c.get('gate') else '')
         carto_html = (f'<section id="carto"><h2><span>G2-6</span> Cartographer silhouette test</h2><p class="meta">{nums} · '
                       f'<a href="../cartographer.html">live page</a></p><div class="shots">{figs}</div></section>')
+    # G3: hero objects, budget table + turnarounds as captured
+    objects_html = ''
+    oj = Path(objects) / 'objects.json' if objects else None
+    if oj and oj.exists():
+        o = json.loads(oj.read_text(encoding='utf-8'))
+        shutil.copytree(objects, out / 'objects', dirs_exist_ok=True)
+        cls = {'PASS': 'pass', 'FAIL': 'bad', 'CEILING': 'ceil'}
+        trs = ''.join(f'<tr><td>{html.escape(r["name"])}</td><td>{r["value"]:,} {html.escape(r["unit"])}</td><td>≤ {r["budget"]:,}</td>'
+                      f'<td class="{cls.get(r["result"], "")}">{r["result"]}</td><td>{html.escape(r.get("note", ""))}</td></tr>' for r in o.get('rows', []))
+        figs = ''.join(f'<figure><a href="objects/{html.escape(f["file"])}"><img src="objects/{html.escape(f["file"])}" alt="{html.escape(f["cap"])}" loading="lazy"></a>'
+                       f'<figcaption><span>{html.escape(f["cap"])}</span></figcaption></figure>' for f in o.get('files', []))
+        pend = ''.join(f'<br>Pending: {html.escape(x)}' for x in o.get('pending', []))
+        gate = f' · GATE: {html.escape(o["gate"])}' if o.get('gate') else ''
+        objects_html = (f'<section id="objects"><h2><span>G3</span> Hero objects</h2><p class="meta">Budgets from §3.2 / §3.3{gate} · '
+                        f'<a href="../objects.html">live page</a>{pend}</p><div class="tbl"><table><thead><tr><th>Object</th><th>Measured</th><th>Budget</th>'
+                        f'<th>Result</th><th>Notes</th></tr></thead><tbody>{trs}</tbody></table></div><div class="shots">{figs}</div></section>')
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -116,15 +133,20 @@ img {{ display: block; width: 100%; height: auto; background: var(--graphite); }
 figcaption {{ display: flex; flex-direction: column; gap: 2px; padding-top: 8px; font: 400 12px/1.4 "JetBrains Mono", monospace; color: var(--stone); }}
 figcaption b {{ color: var(--bone); font-weight: 500; }}
 figure.fail div {{ aspect-ratio: 16 / 9; display: grid; place-items: center; background: var(--graphite); color: var(--signal-red); font: 500 13px "JetBrains Mono", monospace; }}
+.tbl {{ overflow-x: auto; margin-bottom: 16px; }}
+table {{ border-collapse: collapse; font: 400 12px/1.5 "JetBrains Mono", monospace; min-width: 640px; }}
+th, td {{ text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--graphite); vertical-align: top; }}
+th {{ color: var(--stone); font-weight: 500; }}
+.pass {{ color: #9FC2A0; }} .bad {{ color: var(--signal-red); }} .ceil {{ color: var(--atlas-gold); }}
 footer {{ padding-top: 32px; padding-bottom: 48px; font-size: 13px; color: var(--stone); }}
 </style></head><body>
 <header>
 <h1><b>AXIEL</b> · Gate G2 style frames</h1>
 <p class="meta">{ok} of {len(log)} rendered · run {html.escape(str(run))} · {when}<br>
 Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <a href="../">live harness (renders on your device, heavy)</a></p>
-<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}</nav>
+<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}</nav>
 </header>
-<main>{''.join(cards)}{carto_html}</main>
+<main>{''.join(cards)}{carto_html}{objects_html}</main>
 <footer>Rendered by the Render frames workflow on GitHub Actions (software WebGL). Numbers are a headless check, not a visual review.</footer>
 </body></html>
 """
@@ -134,4 +156,5 @@ Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local', sys.argv[4] if len(sys.argv) > 4 else None)
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local', sys.argv[4] if len(sys.argv) > 4 else None,
+         sys.argv[5] if len(sys.argv) > 5 else None)
