@@ -16,7 +16,7 @@ export const KEYS = [
   ['K2', 0.08, [0, 0, 1], [0, -3, -6], 60, 'Through the tear, facing the cliff'],
   ['K3', 0.10, [0, -14, -3], [0, -22, -6], 74, 'Falling past the newest layers, roll ±8°'],
   ['K3b', 0.12, [0, -58, -3], [0, -60, -6], 74, 'Bedrock. Roll 0. Veins ignite'],
-  ['K4a', 0.15, [0, -40, -2.5], [0, -40, -6], 74, 'Face-on: carved line 1', [[0, -40, -1.0], [0, -40, -6]]],
+  ['K4a', 0.15, [0, -40, -2.5], [0, -40, -6], 74, 'Face-on: carved line 1', [[0, -40, -0.95], [0, -40, -6]], 'G4: phone backed off 0.05 so line 1 keeps the 24 px margin'],
   ['K4', 0.17, [0, -22, -2.5], [0, -22, -6], 74, 'Face-on: carved line 2', [[0, -22, -1.0], [0, -22, -6]]],
   ['K4c', 0.19, [0, -6, -2.5], [0, -6, -6], 74, 'Face-on: carved line 3', [[0, -6, -1.0], [0, -6, -6]]],
   ['K4b', 0.20, [0, 3, -3.5], [0, 2, -14], 74, 'Above lip height, still in the chasm'],
@@ -25,17 +25,17 @@ export const KEYS = [
   ['K7', 0.30, [1, 1.6, -20], [0, 1.2, -27], 54, 'Following the walk'],
   ['K8', 0.36, [-6, 2.4, -28], [6, 6, -44], 54, 'Beam sweep, buildings light'],
   ['K9', 0.40, [0.8, 1.5, -35.4], [2.1, 1.0, -37.2], 54, 'Fold the dart'],
-  ['K10', 0.43, [-6, 8, -40], [8, 20, -70], 54, 'Follow the dart up'],
+  ['K10', 0.43, [1, 24, -33], [3.8, 13.3, -48], 54, 'Follow the dart up', [[2, 24, -33], [5.5, 17, -56]], 'G4: climbs over the fault roof and looks at the dart where it is at 0.43 (protocol (−6, 8, −40) → (8, 20, −70) cut the fault building)'],
   ['K11', 0.48, [24, 26, -82], [10, 24, -92], 54, 'Orbit start; the Core wakes'],
   ['K12', 0.54, [10, 25, -107], [10, 26.2, -92], 54, 'Orbit 120°, closer; the tiers turn', null, 'SF-05: backed off to distance 15, aimed at y 26.2 (protocol (10, 26, −104) → (10, 24, −92))'],
   ['K13', 0.59, [-4, 28, -90], [10, 23, -92], 54, 'Orbit 240°; the fix is released'],
   ['K14', 0.62, [4, 60, -44], [4, 0, -44.01], 40, 'Overhead; the fix seats'],
   ['K15', 0.70, [4, 34, -20], [4, 12, -42], 40, 'Arc back and down'],
   ['K16', 0.79, [-2, 8, -9], [-2, 11, -39], 40, 'Face-on to the façade; drops freeze', null, 'SF-06: slid 6 left, face-on kept (protocol x 4)'],
-  ['K17', 0.85, [6, 5, -27], [4, 5.2, -39], 54, 'Repaired window read up close', [[6.37, 4.81, -24.75], [4, 6, -39]], 'SF-07: look lowered to y 5.2 (protocol 6); phone backed off'],
-  ['K17b', 0.88, [10, 6, -24], [-6, 5, -18], 54, 'Turn back; the look-at sweeps sideways'],
-  ['K18', 0.90, [6, 5, -16], [6, 4, 0], 54, 'The ranked result on the back of the paper wall', [[0, 2.6, -18.5], [0, 1.6, 0]], 'SF-07b: desktop slid to x 6 (protocol x 0); phone backed off'],
-  ['K18b', 0.92, [0, 1.5, -7], [0, 0.5, 0], 60, 'Approach the tear from the lip'],
+  ['K17', 0.85, [6, 5, -27.4], [4, 5.2, -39], 54, 'Repaired window read up close', [[6.37, 4.81, -24.75], [4.3, 6, -39]], 'SF-07: look lowered to y 5.2 (protocol 6); phone backed off. G4: desktop 0.4 closer so the card reads 18 px; phone look 0.3 right so the nameplate keeps its margin'],
+  ['K17b', 0.88, [6, 6, -23.5], [-6, 5, -18], 54, 'Turn back; the look-at sweeps sideways', [[5, 6, -23], [-6, 5, -18]], 'G4: pulled back onto the street (protocol x 10 sat in the alley and the arc cut the shop and brochure plots)'],
+  ['K18', 0.90, [6, 5, -14], [6, 4, 0], 54, 'The ranked result on the back of the paper wall', [[0, 2.6, -17.2], [0, 1.6, 0]], 'SF-07b: desktop slid to x 6 (protocol x 0); phone backed off. G4: both 2 / 1.3 closer so the description reads 18 / 14 px'],
+  ['K18b', 0.92, [0, 2, -7], [0, 0.5, 0], 60, 'Approach the tear from the lip', null, 'G4: raised 0.5 so the descent clears the cliff lip by 1.5'],
   ['K19', 0.94, [0, 0.4, 2.5], [0, 0.4, 12], 60, 'Through the tear; the tear heals behind'],
   ['K19b', 0.96, [0, 0, 8], [4, 0, 8], 50, 'Mid turn-around'],
   ['K20', 0.98, [0, 0, 10], [0, 0, 0], 40, 'Locked on the seal. Hold to 1.00'],
@@ -47,24 +47,35 @@ export const SCENES = [
 ];
 export const sceneAt = (p) => { let i = 0; for (let k = 0; k < SCENES.length; k++) if (p >= SCENES[k][0]) i = k; return { n: i + 1, name: SCENES[i][1] }; };
 
-// a spline whose key points sit at known arc-length fractions, so each segment can be walked at even speed
+// a spline whose key points sit at known arc-length fractions, so each segment can be walked at even speed.
+// A key where the path doubles back (chords in and out more than 150° apart, e.g. the bottom of the Fall at K3b)
+// is a cusp: the point is doubled so the curve stops there instead of overshooting past it (G4: the overshoot
+// at K3b nodded the view 11° in 0.0006 of p). A key in STOPS is treated the same way: a held beat the camera
+// arrives at and leaves from without carrying momentum through it.
+export const STOPS = new Set(['K9']);   // G4: the fold (§5.3 fold_dart, 1.4 s); without it the climb to K10 dragged the camera to 0.1 above the ground
 class KeyedSpline {
-  constructor(pts) {
-    const DIV = 240;
-    this.c = new THREE.CatmullRomCurve3(pts.map(v => new THREE.Vector3(...v)), false, 'catmullrom', 0.5);
-    this.c.arcLengthDivisions = DIV * (pts.length - 1);
+  constructor(pts, stops = new Set()) {
+    const DIV = 240, V = pts.map(v => new THREE.Vector3(...v)), R = [];
+    this.in = []; this.out = []; this.cusps = [];
+    V.forEach((v, i) => {
+      const cusp = i > 0 && i < V.length - 1 && (stops.has(i) || v.clone().sub(V[i - 1]).angleTo(V[i + 1].clone().sub(v)) > 150 * DEG);
+      this.in.push(R.length); if (cusp) { R.push(v); this.cusps.push(i); }
+      this.out.push(R.length); R.push(v);
+    });
+    this.c = new THREE.CatmullRomCurve3(R, false, 'catmullrom', 0.5);
+    this.c.arcLengthDivisions = DIV * (R.length - 1);
     const L = this.c.getLengths(), total = L[L.length - 1];
-    this.u = pts.map((_, i) => L[i * DIV] / total);
+    this.u = R.map((_, j) => L[j * DIV] / total);
   }
-  at(i, f, out = new THREE.Vector3()) { return this.c.getPointAt(Math.min(1, this.u[i] + (this.u[i + 1] - this.u[i]) * f), out); }
+  at(i, f, out = new THREE.Vector3()) { const a = this.u[this.out[i]], b = this.u[this.in[i + 1]]; return this.c.getPointAt(Math.min(1, a + (b - a) * f), out); }
 }
 
 const cache = {};
 function splines(phone) {
-  const k = phone ? 'phone' : 'desk';
+  const k = phone ? 'phone' : 'desk', stops = new Set(KEYS.flatMap((K, i) => (STOPS.has(K.key) ? [i] : [])));
   return cache[k] ??= {
-    pos: new KeyedSpline(KEYS.map(K => (phone && K.phone ? K.phone[0] : K.pos))),
-    look: new KeyedSpline(KEYS.map(K => (phone && K.phone ? K.phone[1] : K.look))),
+    pos: new KeyedSpline(KEYS.map(K => (phone && K.phone ? K.phone[0] : K.pos)), stops),
+    look: new KeyedSpline(KEYS.map(K => (phone && K.phone ? K.phone[1] : K.look)), stops),
   };
 }
 

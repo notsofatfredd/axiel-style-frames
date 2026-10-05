@@ -13,23 +13,24 @@ import { makeCore, CORE } from './livingcore.js';
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
-/* ---------- timeline (PROPOSED: the protocol fixes the keys, not these event times; G5 locks them) ---------- */
+/* ---------- timeline: event times from protocol §5.3; only the in-between shapes (linear ramps, dart curve) are PROPOSED ---------- */
 export const TIMELINE = [
-  ['tear', '0.020 → 0.045 crack runs (open 0 → 0.3), 0.045 → 0.070 tears open (0.3 → 1); fully open before the K2 → K3 crossing'],
-  ['heal', '0.945 → 0.965 the tear heals behind the camera (K19 "the tear heals behind")'],
-  ['carto', 'stands at (0, 0, −14) until 0.23, walks the path to (2, 0, −37) by 0.38, folds 0.38 → 0.42, throws at 0.42'],
-  ['dart', '0.42 → 0.48 flies from the hand to the Core\'s cable inlet on the lowest tier, +z face'],
-  ['seal', 'visible from 0.95 (after the tear heals)'],
+  ['tear', '§5.3: crack appears and grows 0.05 → 0.07 (open 0 → 0.3), paper tears 0.07 → 0.08 (0.3 → 1), fall 0.08 → 0.12'],
+  ['heal', '§5.3: tear heals 0.94 → 0.96, during the return flight 0.92 → 0.95'],
+  ['carto', '§5.3: walks 0.24 → 0.37 from (0, 0, −14) to (2, 0, −37); raise_lantern 0.34, unfurl_map 0.37, fold_dart 0.40, throw_dart 0.42'],
+  ['dart', '§5.3: in hand from fold 0.40, flies 0.42 → 0.46 to the Core\'s cable inlet (lowest tier, +z face); flight curve PROPOSED'],
+  ['seal', '§5.3: stamps at 0.98'],
 ];
 export const VH = { desk: 1200, phone: 900 };   // §4.2 scroll length
 export const SCROLL_VH_PER_S = 30;              // PROPOSED steady scroll for the animatic: desktop 40 s, phone 30 s
+export const T = { crack: 0.05, tear: 0.07, open: 0.08, walk0: 0.24, walk1: 0.37, fold: 0.40, throw: 0.42, hit: 0.46, heal0: 0.94, heal1: 0.96, seal: 0.98 };
 
 export function tearOpen(p) {
-  if (p < 0.02) return 0;
-  if (p < 0.045) return 0.3 * (p - 0.02) / 0.025;
-  if (p < 0.07) return 0.3 + 0.7 * (p - 0.045) / 0.025;
-  if (p < 0.945) return 1;
-  if (p < 0.965) return 1 - (p - 0.945) / 0.02;
+  if (p < T.crack) return 0;
+  if (p < T.tear) return 0.3 * (p - T.crack) / (T.tear - T.crack);
+  if (p < T.open) return 0.3 + 0.7 * (p - T.tear) / (T.open - T.tear);
+  if (p < T.heal0) return 1;
+  if (p < T.heal1) return 1 - (p - T.heal0) / (T.heal1 - T.heal0);
   return 0;
 }
 /* the tear outline, mirrored line for line from paperwall.js TEAR_GLSL (crack line, bulge and fibre jag included) */
@@ -60,15 +61,15 @@ export function tearPolygon(u, n = 160) {
 }
 
 export function cartoAt(p) {
-  const [a, b] = LAYOUT.path, f = clamp((p - 0.23) / (0.38 - 0.23));
+  const [a, b] = LAYOUT.path, f = clamp((p - T.walk0) / (T.walk1 - T.walk0));
   return { x: lerp(a[0], b[0], f), z: lerp(a[1], b[1], f), heading: Math.atan2(b[0] - a[0], b[1] - a[1]), walking: f > 0 && f < 1 };
 }
 export const INLET = new THREE.Vector3(CORE.x, CORE.y - 3, CORE.z + 5.1);
 const D0 = new THREE.Vector3(2.25, 1.35, -37.1), D1 = new THREE.Vector3(5, 30, -58);
 export function dartAt(p) {
-  if (p < 0.38 || p > 0.48) return null;
-  if (p < 0.42) return D0.clone();
-  const t = (p - 0.42) / 0.06, u = 1 - t;
+  if (p < T.fold || p > T.hit) return null;
+  if (p < T.throw) return D0.clone();
+  const t = (p - T.throw) / (T.hit - T.throw), u = 1 - t;
   return D0.clone().multiplyScalar(u * u).add(D1.clone().multiplyScalar(2 * u * t)).add(INLET.clone().multiplyScalar(t * t));
 }
 

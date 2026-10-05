@@ -4,7 +4,7 @@
  *   share preview = the display window · business details = the nameplate by the door [G2-1]
  * Layout = /docs/city-plot-map.md (PROPOSED, G2-8). Fill buildings are instanced per archetype.
  */
-import { THREE, HEX, col, rng, detailMat, canvas, canvasTex, setFont, loadImage, tinted } from '../core.js';
+import { THREE, HEX, col, rng, detailMat, canvas, canvasTex, setFont, loadImage, tinted, wrap } from '../core.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ---------- layout (PROPOSED, G2-8) ---------- */
@@ -227,7 +227,7 @@ export async function shareCardCanvas() {
   // measure text block first, image takes what is left (og:image itself UNKNOWN: PROPOSED symbol on paper)
   mont(500);
   const wrapW = c.width - 2 * m;
-  const wrapL = (s) => { const words = s.split(' '), L = []; let l = ''; for (const wd of words) { const t = l ? l + ' ' + wd : wd; if (x.measureText(t).width > wrapW && l) { L.push(l); l = wd; } else l = t; } if (l) L.push(l); return L; };
+  const wrapL = (s) => wrap(x, s, wrapW);   // core wrap: keeps "Beyond Immediate Reality" whole
   const titleL = wrapL(SITE.title);
   mont(400);
   const descL = wrapL(SITE.description);

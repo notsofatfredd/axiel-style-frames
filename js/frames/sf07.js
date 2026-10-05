@@ -48,9 +48,9 @@ export default {
     // aimed at y 3.6, below the window centre (4.4): at centre aim the pool stopped at the nameplate's top edge and the gilt read dim
     await placeCartographer(scene, [-3.5, 0, -32.5], [win[0], win[2]], [win[0], 3.6, win[2]], { shadowMap: tier === 'mid' ? 1024 : 2048, aim: { intensity: 340 } });
     const camera = vp.phone
-      ? makeCamera(54, [6.37, 4.81, -24.75], [4, 6, -39])
-      : makeCamera(54, [6, 5, -27], [4, 5.2, -39]); // look lowered from y 6: the larger nameplate's bottom edge fell at y ≈ 810 of 810
-    return { scene, camera, camNote: vp.phone ? 'Phone: K17 backed off along its axis to distance 14.5 (PROPOSED).' : 'K17 look lowered to y 5.2 so the nameplate stays whole (PROPOSED).' };
+      ? makeCamera(54, [6.37, 4.81, -24.75], [4.3, 6, -39])
+      : makeCamera(54, [6, 5, -27.4], [4, 5.2, -39]); // look lowered from y 6: the larger nameplate's bottom edge fell at y ≈ 810 of 810; G4: 0.4 closer so the card reads 18 px
+    return { scene, camera, camNote: vp.phone ? 'Phone: K17 backed off along its axis to distance 14.5, look 0.3 right so the nameplate keeps its margin (PROPOSED).' : 'K17 0.4 closer, look lowered to y 5.2 so the nameplate stays whole (PROPOSED).' };
   },
   overlay(ctx, vp) { sceneCounter(ctx, vp, 7, 'PROOF', HEX.bone); },
 };
@@ -59,7 +59,7 @@ export default {
 const SHEET = { w: 46, h: 26, cy: 2 };      // 46 × 26: at both K18 keys every sheet edge stays out of frame (checked by projection)
 const BLOCK = { x: 0, y: 6, w: 8, h: 6 };   // PROPOSED: 8 × 6 (protocol: 16 × 6); 6.6 wide on phone so it keeps a 24 px margin
 // K18 looks along +z at the back face, so screen-right is world −x: the desktop key sits at +6 to push the tear right of the copy column
-const K18 = { desk: [[6, 5, -16], [6, 4, 0]], phone: [[0, 2.6, -18.5], [0, 1.6, 0]] };
+const K18 = { desk: [[6, 5, -14], [6, 4, 0]], phone: [[0, 2.6, -17.2], [0, 1.6, 0]] };   // G4: 2 / 1.3 closer so the description reads 18 / 14 px
 const TEAR_R = 3;
 
 function tearOutline(r) {
@@ -83,8 +83,8 @@ export const alt = {
     'K18 itself (protocol marks it PROPOSED).',
     'Printed result block 8 × 6 centred at (0, 6), above the tear (protocol says 16 × 6; 8 wide fits a phone).',
     'Result layout: rank and query, URL in mono, title (cap 0.34), description (cap 0.29). Printed in --ink on the bone back face.',
-    'Desktop key: K18 at (6, 5, −16) looking at (6, 4, 0), so on screen the tear and the result sit right of the copy column (tear from x ≈ 852 of 1440, copy ends ≈ 808) and the closing line never crosses the tear.',
-    'Phone key: K18 at (0, 2.6, −18.5) looking at (0, 1.6, 0), so the tear ends above the closing line and the result clears the counter; result block 6.6 wide so it keeps the 24 px margin.',
+    'Desktop key: K18 at (6, 5, −14) looking at (6, 4, 0), so on screen the tear and the result sit right of the copy column (tear from x ≈ 852 of 1440 at the G2 key (6, 5, −16); the G4 key moves it about 23 px further right; copy ends ≈ 808) and the closing line never crosses the tear.',
+    'Phone key: K18 at (0, 2.6, −17.2) looking at (0, 1.6, 0), so the tear ends above the closing line and the result clears the counter; result block 6.6 wide so it keeps the 24 px margin.',
     'Back face sheet 46 × 26 so no edge shows at either key.',
     'No street lip in the foreground (G2 review: at K18 it covered the closing line).',
     'The result sits above the tear, not wrapped around it as the protocol says: wrapping the copy round the tear is left for the CD to decide.',
@@ -142,7 +142,7 @@ export const alt = {
     scene.add(sheet);
     const k = vp.phone ? K18.phone : K18.desk;
     const camera = makeCamera(54, k[0], k[1]);
-    return { scene, camera, camNote: vp.phone ? 'Phone: K18 at (0, 2.6, −18.5) → (0, 1.6, 0), block 6.6 wide (PROPOSED).' : 'K18 at (6, 5, −16) → (6, 4, 0) so the closing line clears the tear (PROPOSED).', blockBottom: y };
+    return { scene, camera, camNote: vp.phone ? 'Phone: K18 at (0, 2.6, −17.2) → (0, 1.6, 0), block 6.6 wide (PROPOSED).' : 'K18 at (6, 5, −14) → (6, 4, 0) so the closing line clears the tear (PROPOSED).', blockBottom: y };
   },
   overlay(ctx, vp) {
     sceneCopy(ctx, vp, { name: 'PROOF', line: CLOSING, color: HEX.ink, accent: HEX.stone, shadow: false });

@@ -114,7 +114,7 @@ def main(parts, out, run, carto=None, objects=None, animatic=None):
         shutil.copytree(animatic, out / 'animatic', dirs_exist_ok=True)
         rep = a.get('report') or {}
         vids = ''.join(f'<figure class="{"phone" if v["vp"] == "phone" else ""}"><video controls preload="metadata" playsinline src="animatic/{html.escape(v["file"])}"></video>'
-                       f'<figcaption><b>{"Desktop 1440×900" if v["vp"] == "desk" else "Phone 390×844"}</b><span>{v["seconds"]:.0f} s at {v["fps"]} fps (PROPOSED steady scroll)</span></figcaption></figure>'
+                       f'<figcaption><b>{"Desktop " + v.get("size", "1440×900") if v["vp"] == "desk" else "Phone 390×844"}</b><span>{v["seconds"]:.0f} s at {v["fps"]} fps (PROPOSED steady scroll)</span></figcaption></figure>'
                        for v in a.get('videos', []))
         def pf(b):
             return f'<span class="{"pass" if b else "bad"}">{"PASS" if b else "FAIL"}</span>'

@@ -234,8 +234,11 @@ export function textC(ctx, str, x, y, px, trackingEm = 0.08) {
   ctx.textAlign = 'center';
   ctx.fillText(str, x + (px * trackingEm) / 2, y);
 }
+// "Beyond Immediate Reality" moves only as one unit (brand canon), so wrap never breaks inside it
+export const UNIT = 'Beyond Immediate Reality';
 export function wrap(ctx, str, maxW) {
-  const words = str.split(' '), lines = [];
+  const NB = '\u00a0';   // the unit's spaces are bound while splitting, then restored
+  const words = str.split(UNIT).join(UNIT.replaceAll(' ', NB)).split(' ').map(w => w.replaceAll(NB, ' ')), lines = [];
   let line = '';
   for (const w of words) {
     const t = line ? line + ' ' + w : w;

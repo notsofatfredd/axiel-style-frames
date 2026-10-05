@@ -171,7 +171,7 @@ try {
 
   /* ---------- camera, HUD, frames ---------- */
   const cam = new THREE.PerspectiveCamera(40, 16 / 10, 0.05, 600);
-  const VPS = GB.VIEWPORTS;
+  const VPS = { ...GB.VIEWPORTS, hd: { W: 1920, H: 1080 } };   // hd: the §4.4 1920×1080 recording of the desktop path (legibility stays on desk and phone)
   const hud = $('hud'), hx = hud.getContext('2d');
   let vp = 'desk';
   const W = GB.world();
@@ -183,8 +183,8 @@ try {
     setWall(GB.tearOpen(p));
     const c = GB.cartoAt(p); carto.position.set(c.x, 0, c.z); carto.rotation.y = c.heading;   // stays at the end of the path after the throw (clearance counts it there too)
     const d = GB.dartAt(p); dart.visible = !!d;
-    if (d) { dart.position.copy(d); const n = GB.dartAt(Math.min(p + 0.002, 0.48)); if (n && n.distanceTo(d) > 1e-4) dart.lookAt(n); }
-    seal.visible = p >= 0.95;
+    if (d) { dart.position.copy(d); const n = GB.dartAt(Math.min(p + 0.002, GB.T.hit)); if (n && n.distanceTo(d) > 1e-4) dart.lookAt(n); }
+    seal.visible = p >= GB.T.seal;
     sheets.desk.visible = !phone; sheets.phone.visible = phone;
     return s;
   }
@@ -197,7 +197,7 @@ try {
     const near = GB.nearest(s.pos, p, W).filter(o => o.cls !== 'ground').reduce((a, b) => (b.d < a.d ? b : a));
     const sc = sceneAt(p);
     const rows = [`p ${p.toFixed(3)} · ${s.key} (${KEYS[s.seg].key}→${KEYS[s.seg + 1].key})`, `Scene ${sc.n} ${sc.name} · FOV ${s.fov.toFixed(0)}${s.roll ? ` · roll ${(s.roll * 180 / Math.PI).toFixed(1)}°` : ''}`,
-      `nearest ${near.d.toFixed(2)} · ${near.name}`, 'GREY BOX · timings PROPOSED'];
+      `nearest ${near.d.toFixed(2)} · ${near.name}`, 'GREY BOX · beats §5.3'];
     hx.font = `500 ${f}px "JetBrains Mono", monospace`;
     const bw = Math.max(...rows.map(r => hx.measureText(r).width)) + pad;
     hx.fillStyle = 'rgba(11,11,12,0.72)'; hx.fillRect(pad / 2, pad / 2, bw, rows.length * f * 1.45 + pad / 2);
@@ -249,7 +249,7 @@ try {
     // Cartographer walk and dart flight
     { const [a, b] = LAYOUT.path; x.strokeStyle = HEX.bone; x.lineWidth = 4; x.beginPath(); x.moveTo(...P(...a)); x.lineTo(...P(...b)); x.stroke(); }
     x.strokeStyle = HEX.paper; x.lineWidth = 2; x.setLineDash([3, 4]); x.beginPath();
-    for (let p = 0.42; p <= 0.48; p += 0.002) { const d = GB.dartAt(p); const q = P(d.x, d.z); p === 0.42 ? x.moveTo(...q) : x.lineTo(...q); }
+    for (let i = 0; i <= 40; i++) { const d = GB.dartAt(GB.T.throw + (GB.T.hit - GB.T.throw) * i / 40), q = P(d.x, d.z); i ? x.lineTo(...q) : x.moveTo(...q); }
     x.stroke(); x.setLineDash([]);
     // camera paths (plan view): desktop gold, phone bone dashed; keys labelled
     for (const [phone, colr, dash] of [[true, HEX.bone, [8, 6]], [false, HEX.gold, []]]) {
