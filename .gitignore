@@ -6,3 +6,5 @@ docs/*
 .playwright-mcp/
 *.png
 !assets/*.png
+!docs/clearance.md
+__pycache__/
