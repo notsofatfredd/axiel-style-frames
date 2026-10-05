@@ -53,8 +53,9 @@ export default {
 };
 
 /* ---------- SF-07b · K18 · the ranked result printed on the back of the paper wall ---------- */
-const SHEET = { w: 34, h: 20, cy: 4 };
-const BLOCK = { x: 0, y: 6, w: 8, h: 6 };   // PROPOSED: 8 × 6 (protocol: 16 × 6, too wide for a phone frame)
+const SHEET = { w: 40, h: 20, cy: 4 };      // 40 wide: K18 slides 5 left on desktop and the sheet edge must stay out of frame
+const BLOCK = { x: 0, y: 6, w: 8, h: 6 };   // PROPOSED: 8 × 6 (protocol: 16 × 6); 6.6 wide on phone so it keeps a 24 px margin
+const K18 = { desk: [[-5, 5, -16], [-5, 4, 0]], phone: [[0, 4, -17.5], [0, 3, 0]] };
 const TEAR_R = 3;
 
 function tearOutline(r) {
@@ -72,13 +73,16 @@ export const alt = {
   key: 'K18', cam: 'Face the back of the paper wall',
   phone: true,
   tone: THREE.NoToneMapping, bloom: null, clear: HEX.night,
-  light: 'The paper wall\'s back face lit bone (same calibrated paper light as SF-01, from the top-left). Daylight through the tear in --paper. Night street lip in the foreground, moonlight fill. No bloom.',
+  light: 'The paper wall\'s back face lit bone (same calibrated paper light as SF-01, from the top-left). Daylight through the tear in --paper, brightest at the torn lip. Moonlight fill. No bloom.',
   tokens: ['bone', 'paper', 'ink', 'stone', 'graphite', 'night', 'rain'],
   proposed: [
     'K18 itself (protocol marks it PROPOSED).',
     'Printed result block 8 × 6 centred at (0, 6), above the tear (protocol says 16 × 6; 8 wide fits a phone).',
     'Result layout: rank and query, URL in mono, title (cap 0.34), description (cap 0.29). Printed in --ink on the bone back face.',
-    'Phone key: K18 backed off to (0, 5, −17.5) so the 8-wide block fits 390 wide.',
+    'Desktop key: K18 slid 5 left to (−5, 5, −16), so the tear and the result sit right of the copy column and the closing line never crosses the tear.',
+    'Phone key: K18 at (0, 4, −17.5) looking at (0, 3, 0), result block 6.6 wide so it keeps the 24 px margin.',
+    'No street lip in the foreground (G2 review: at K18 it covered the closing line).',
+    'The result sits above the tear, not wrapped around it as the protocol says: wrapping the copy round the tear is left for the CD to decide.',
     'Closing line set as the scene copy.',
   ],
   unknown: ['Rank number and query (M5): shown as "No. [rank]" and "[query]" until supplied.'],
@@ -92,7 +96,7 @@ export const alt = {
   async build({ renderer, vp }) {
     const scene = new THREE.Scene();
     nightLights(scene, { sky: 0.3, moon: 0.08 });
-    scene.add(makeGround({}));
+    const B = { ...BLOCK, w: vp.phone ? 6.6 : BLOCK.w };
     // the back face: a bone sheet (worldW 34 × 20) seen from −z
     const sh = makeSheet(4096, Math.round(4096 * SHEET.h / SHEET.w), SHEET.w, SHEET.h);
     sh.cc.fillStyle = HEX.bone; sh.cc.fillRect(0, 0, sh.texW, sh.texH);
@@ -105,31 +109,35 @@ export const alt = {
     sh.hc.filter = 'blur(6px)'; sh.hc.fillStyle = 'rgba(255,255,255,0.35)'; path(sh.hc, 1.05); sh.hc.fill(); sh.hc.filter = 'none';   // the lip curls toward us
     sh.cc.fillStyle = HEX.paper; path(sh.cc, 1.03); sh.cc.fill();                                                                  // thin torn edge catches light
     sh.cc.fillStyle = '#000'; path(sh.cc); sh.cc.fill();
-    sh.ec.filter = 'blur(14px)'; sh.ec.fillStyle = 'rgba(255,255,255,0.18)'; path(sh.ec, 1.08); sh.ec.fill(); sh.ec.filter = 'none'; // light through thin paper at the lip
-    sh.ec.fillStyle = '#fff'; path(sh.ec); sh.ec.fill();
+    sh.ec.filter = 'blur(8px)'; sh.ec.fillStyle = 'rgba(255,255,255,0.1)'; path(sh.ec, 1.06); sh.ec.fill(); sh.ec.filter = 'none'; // light through thin paper at the lip
+    // daylight in the opening: brightest at the torn lip, falling off toward the middle, so it reads as an opening, not a flat disc
+    const [ox, oy] = P(0, 0), gr = sh.ec.createRadialGradient(ox, oy, 0, ox, oy, TEAR_R * sh.ppu * 1.05);
+    gr.addColorStop(0, '#c8c8c8'); gr.addColorStop(0.75, '#e4e4e4'); gr.addColorStop(1, '#fff');
+    sh.ec.fillStyle = gr; path(sh.ec); sh.ec.fill();
     // printed result
     const ppu = sh.ppu, cx = sh.cc;
-    const x0 = BLOCK.x - BLOCK.w / 2;
+    const x0 = B.x - B.w / 2;
     const at = (x, y) => P(x, y);
     const line = (txt, y, cap, o = {}) => {
       setFont(cx, o.w ?? 400, cap * ppu / (o.mono ? 0.73 : 0.7), o.mono ? 'mono' : 'Montserrat', o.track ?? 0.02);
       cx.fillStyle = o.color ?? HEX.ink; cx.textAlign = 'left'; cx.textBaseline = 'alphabetic';
       const [a, b] = at(x0, y); cx.fillText(txt, a, b);
     };
-    let y = BLOCK.y + BLOCK.h / 2 - 0.42;
+    let y = B.y + B.h / 2 - 0.42;
     line('No. [rank]   ·   [query]', y, 0.24, { mono: true, color: HEX.stone, track: 0.06 }); y -= 0.62;
     line(SITE.domain, y, 0.29, { mono: true, color: HEX.stone }); y -= 0.78;
     setFont(cx, 500, 0.34 * ppu / 0.7, 'Montserrat', 0.01);
-    for (const l of wrap(cx, SITE.title, BLOCK.w * ppu)) { line(l, y, 0.34, { w: 500, track: 0.01 }); y -= 0.6; }
+    for (const l of wrap(cx, SITE.title, B.w * ppu)) { line(l, y, 0.34, { w: 500, track: 0.01 }); y -= 0.6; }
     y -= 0.12;
     setFont(cx, 400, 0.29 * ppu / 0.7, 'Montserrat', 0.02);
-    for (const l of wrap(cx, SITE.description, BLOCK.w * ppu)) { line(l, y, 0.29); y -= 0.52; }
+    for (const l of wrap(cx, SITE.description, B.w * ppu)) { line(l, y, 0.29); y -= 0.52; }
     const sheet = paperMesh(sh, { key: 0.92, amb: 0.42, bump: 1.4, emisCol: col('paper', 1.05) });
     sheet.position.set(0, SHEET.cy, 0);
     sheet.rotation.y = Math.PI; // faces −z; seen from K18 the texture's +u runs to the viewer's right, so print reads normally
     scene.add(sheet);
-    const camera = vp.phone ? makeCamera(54, [0, 5, -17.5], [0, 4, 0]) : makeCamera(54, [0, 5, -16], [0, 4, 0]);
-    return { scene, camera, camNote: vp.phone ? 'Phone: K18 backed off to (0, 5, −17.5) so the 8-wide block fits (PROPOSED).' : null, blockBottom: y };
+    const k = vp.phone ? K18.phone : K18.desk;
+    const camera = makeCamera(54, k[0], k[1]);
+    return { scene, camera, camNote: vp.phone ? 'Phone: K18 at (0, 4, −17.5), block 6.6 wide (PROPOSED).' : 'K18 slid 5 left so the closing line clears the tear (PROPOSED).', blockBottom: y };
   },
   overlay(ctx, vp) {
     sceneCopy(ctx, vp, { name: 'PROOF', line: CLOSING, color: HEX.ink, accent: HEX.stone, shadow: false });

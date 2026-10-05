@@ -71,10 +71,11 @@ export function makeCore(o = {}) {
     new THREE.CylinderGeometry(5.06, 5.06, 0.22, 64, 1, true).translate(0, -1.9, 0),
   ]), bandMat));
   // seams between tiers: --atlas-gold-hot when awake (bloom), plain brass asleep
-  const seam = awake ? MAT.glowHot(o.seam ?? 2.2) : bandMat;
+  // a hairline of light hugging each joint (tube 0.02), so it reads as a lit seam in metal, not a neon ring
+  const seam = awake ? MAT.glowHot(o.seam ?? 1.1) : bandMat;
   tiers.add(new THREE.Mesh(mergeGeometries([
-    new THREE.TorusGeometry(3.9, 0.05, 6, 96).rotateX(Math.PI / 2).translate(0, -1.3, 0),
-    new THREE.TorusGeometry(2.5, 0.045, 6, 80).rotateX(Math.PI / 2).translate(0, 1.5, 0),
+    new THREE.TorusGeometry(3.86, 0.022, 6, 96).rotateX(Math.PI / 2).translate(0, -1.3, 0),
+    new THREE.TorusGeometry(2.46, 0.02, 6, 80).rotateX(Math.PI / 2).translate(0, 1.5, 0),
   ]), seam));
   // cable inlet on the lowest tier, facing +z (the INDEX street)
   const inlet = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.12, 8, 24).translate(0, -3.0, 5.02), bandMat);
@@ -140,16 +141,23 @@ export async function makeFixKit(o = {}) {
   }
   gi.renderOrder = 2;
   g.add(gi, go);
-  // the stamp: "SPECIMEN No. 001 · VERIFIED" (G1-P4) in --atlas-gold-hot, locking onto the crown's front
-  const sw = 2.4, sh = 0.4, S = 600;
+  // the stamp: "SPECIMEN No. 001 · VERIFIED" (G1-P4) in --atlas-gold-hot, locking onto the crown's front.
+  // Set in two lines, broken at the middot (PROPOSED): one line at a readable cap needs ~4.3 units.
+  const sw = 3.0, sh = 0.78, S = 600;
   const c = canvas(sw * S, sh * S), x = c.getContext('2d');
   x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
   x.strokeStyle = '#fff'; x.lineWidth = 0.02 * S; x.strokeRect(0.03 * S, 0.03 * S, c.width - 0.06 * S, c.height - 0.06 * S);
-  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  setFont(x, 500, (0.17 / 0.73) * S, 'mono', 0.08);
-  x.fillText('SPECIMEN No. 001 · VERIFIED', c.width / 2 + 0.17 / 0.73 * S * 0.04, c.height / 2 + 0.01 * S);
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  const cap = 0.17, tr = 0.08, room = (sw - 0.3) * S;
+  [['SPECIMEN No. 001', 0.34], ['VERIFIED', 0.62]].forEach(([t, by]) => {
+    let px = (cap / 0.73) * S;
+    setFont(x, 500, px, 'mono', tr);
+    const tw = x.measureText(t).width - px * tr;
+    if (tw > room) { px *= room / tw; setFont(x, 500, px, 'mono', tr); }   // fit guard: never clip
+    x.fillText(t, c.width / 2 + px * tr / 2, by * S);
+  });
   const st = canvasTex(c, true);
-  const stamp = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ color: col('hot', o.stamp ?? 2.2), alphaMap: st, transparent: true, depthWrite: false }));
+  const stamp = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ color: col('hot', o.stamp ?? 1.5), alphaMap: st, transparent: true, depthWrite: false }));
   stamp.material.userData.bloom = true;
   stamp.position.set(CORE.x, CORE.y + 2.6, CORE.z - 2.12);
   stamp.rotation.y = Math.PI;

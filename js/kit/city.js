@@ -251,6 +251,10 @@ export async function shareCardCanvas() {
   for (const l of descL) {
     const lw = x.measureText(l).width;
     hx.fillStyle = '#fff'; hx.fillRect(m - 0.05 * U, y - cap - 0.07 * U, lw + 0.1 * U, cap + 0.16 * U);
+    // knock the glyphs (and a thin halo) out of the glow mask: the ink stays dark on the lit band
+    setFont(hx, 400, cap / 0.7, 'Montserrat', 0.01); hx.textBaseline = 'alphabetic';
+    hx.fillStyle = '#000'; hx.strokeStyle = '#000'; hx.lineWidth = 0.025 * U; hx.lineJoin = 'round';
+    hx.strokeText(l, m, y); hx.fillText(l, m, y);
     x.fillStyle = HEX.hot; x.fillRect(m - 0.05 * U, y - cap - 0.07 * U, lw + 0.1 * U, cap + 0.16 * U);
     x.fillStyle = HEX.ink; x.fillText(l, m, y);
     y += pitch;
@@ -286,7 +290,15 @@ export function labelMask(wU, hU, lines, o = {}) {
   const P = o.ppu ?? 200;
   x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
   x.fillStyle = '#fff'; x.textBaseline = 'alphabetic'; x.textAlign = 'center';
-  for (const L of lines) { setFont(x, L.w ?? 500, (L.cap / 0.7) * P, L.mono ? 'mono' : 'Montserrat', L.track ?? 0.12); x.fillText(L.t, c.width / 2 + (L.cap / 0.7) * P * (L.track ?? 0.12) / 2, L.y * P); }
+  for (const L of lines) {
+    // fit guard: never clip; shrink the line to the plate width less a margin of one cap height a side
+    let px = (L.cap / 0.7) * P;
+    const tr = L.track ?? 0.12, fam = L.mono ? 'mono' : 'Montserrat', room = c.width - 2 * L.cap * P;
+    setFont(x, L.w ?? 500, px, fam, tr);
+    const tw = x.measureText(L.t).width - px * tr;
+    if (tw > room) { px *= room / tw; setFont(x, L.w ?? 500, px, fam, tr); }
+    x.fillText(L.t, c.width / 2 + px * tr / 2, L.y * P);
+  }
   return c;
 }
 /* A plaque material: stone (or graphite) with a mask that is carved (recessed) and optionally gilded or bone-inlaid. */
@@ -412,7 +424,7 @@ export async function makeFaultBuilding(o = {}) {
     const cardMat = detailMat({ color: 0xffffff, map: ct, roughness: 0.85, emissive: col('paper'), emissiveMap: ct, emissiveIntensity: o.cardGlow ?? 0.22 }, {
       uniforms: { uHi: { value: ht }, uHot: { value: col('hot') }, uHiS: { value: o.hiGlow ?? 0.9 } },
       pars: 'uniform sampler2D uHi; uniform vec3 uHot; uniform float uHiS;', scale: 40, vary: 0.02, bump: 0.001, bloomPart: true,
-      emis: `{ float hm = texture2D(uHi, vMapUv).r; vec3 e = hm * uHot * uHiS; totalEmissiveRadiance += e; bloomE += e * 0.6; }`,
+      emis: `{ float hm = texture2D(uHi, vMapUv).r; vec3 e = hm * uHot * uHiS; totalEmissiveRadiance += e; bloomE += e * 0.25; }`,
     });
     const cardMesh = new THREE.Mesh(new THREE.PlaneGeometry(card.w, card.h).translate(wcx, wcy, FB.z - 0.3), cardMat);
     g.add(cardMesh);

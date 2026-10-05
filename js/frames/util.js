@@ -40,12 +40,15 @@ export function leaderLabel(ctx, vp, text, at, pt, color = HEX.pass) {
   const { u } = vp;
   ctx.save();
   ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.2 * u; ctx.globalAlpha = 0.92;
-  ctx.beginPath(); ctx.moveTo(at.x, at.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
-  ctx.beginPath(); ctx.arc(at.x, at.y, 2.6 * u, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowColor = 'rgba(11,11,12,0.7)'; ctx.shadowBlur = 8 * u;
   setFont(ctx, 500, 25 * u, 'mono', 0.06);              // 25px mono → cap ≈ 18px CSS (JetBrains Mono cap ≈ 0.73 em)
   ctx.textBaseline = 'middle';
-  ctx.textAlign = pt.x >= at.x ? 'left' : 'right';
-  ctx.fillText(text, pt.x + (pt.x >= at.x ? 6 : -6) * u, pt.y);
+  // keep the whole label inside the safe margin (clear of the scroll counter): slide the label end inward
+  const right = pt.x >= at.x, tw = ctx.measureText(text).width, m = (vp.phone ? 24 : 64) * u, { W, H } = vp;
+  const end = { x: right ? Math.min(pt.x, W - m - tw - 6 * u) : Math.max(pt.x, m + tw + 6 * u), y: Math.min(Math.max(pt.y, m * 0.6), H - m * 0.6) };
+  ctx.beginPath(); ctx.moveTo(at.x, at.y); ctx.lineTo(end.x, end.y); ctx.stroke();
+  ctx.beginPath(); ctx.arc(at.x, at.y, 2.6 * u, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowColor = 'rgba(11,11,12,0.7)'; ctx.shadowBlur = 8 * u;
+  ctx.textAlign = right ? 'left' : 'right';
+  ctx.fillText(text, end.x + (right ? 6 : -6) * u, end.y);
   ctx.restore();
 }

@@ -7,7 +7,8 @@ const HERO_Y = -0.42; // hero line baseline (world units on the sheet)
 function crackPath(rnd, x0, x1, y0, step) {
   const pts = [];
   let x = x0, y = y0;
-  while (x < x1) { pts.push([x, y]); x += step[0] + rnd() * step[1]; y = y0 + (y - y0) * 0.8 + (rnd() - 0.5) * 0.05; }
+  // angular: short straight runs with sharp turns (torn fibre), pulled back toward the line so it never wanders up into the copy
+  while (x < x1) { pts.push([x, y]); x += step[0] + rnd() * step[1]; y = y0 + (y - y0) * 0.55 + (rnd() - 0.5) * 0.07; }
   pts.push([x1, y0 + (rnd() - 0.5) * 0.02]);
   return pts;
 }
@@ -37,7 +38,7 @@ function blurredPath(sh, ctx, pts, maxW, style, blur, extra = 0) {
 export default {
   id: 'SF-01', scene: 'Surface', moment: 'Hero copy, crack beginning', p: '0.06',
   key: 'K1', cam: 'Push in to the crack',
-  tone: THREE.NoToneMapping, bloom: [0.55, 0.45, 1.0], clear: HEX.paper,
+  tone: THREE.NoToneMapping, bloom: [0.3, 0.3, 1.0], clear: HEX.paper,
   light: 'Soft warm key from top-left (white + 5% --lantern), ambient paper bounce, no fog. Paper: emboss from the raster lockup, fibre texture. The only light that blooms is the --atlas-gold-hot showing through the crack.',
   tokens: ['paper', 'bone', 'stone', 'ink', 'hot'],
   proposed: [
@@ -82,13 +83,14 @@ export default {
     const main = crackPath(r, -0.62, 0.74, -1.02, [0.022, 0.05]);
     const br1 = crackPath(r, 0.0, 0.2, -1.0, [0.02, 0.03]).map(([x, y], i) => [x, y - i * 0.012]);
     const br2 = crackPath(r, -0.3, -0.16, -1.03, [0.02, 0.03]).map(([x, y], i) => [x, y + i * 0.01]);
+    // a hairline split: the dark cut reads first, the gold only as a thin core inside it (G2 review: the wide
+    // emissive halo read as a glowing smear)
     for (const [p, w] of [[main, 1], [br1, 0.45], [br2, 0.4]]) {
-      blurredPath(sh, sh.hc, p, 7 * w, 'rgba(0,0,0,0.55)', 3);          // depression (shading lip)
-      strokePath(sh, sh.cc, p, 3.2 * w, HEX.ink, 0.4);                   // the split
-      blurredPath(sh, sh.ec, p, 16 * w, 'rgba(255,255,255,0.28)', 10);  // light from beneath
-      blurredPath(sh, sh.ec, p, 3.4 * w, 'rgba(255,255,255,0.9)', 2);
+      blurredPath(sh, sh.hc, p, 6 * w, 'rgba(0,0,0,0.55)', 2.5);        // depression (shading lip)
+      strokePath(sh, sh.cc, p, 3.0 * w, HEX.ink, 0.4);                   // the split
+      blurredPath(sh, sh.ec, p, 5 * w, 'rgba(255,255,255,0.12)', 4);    // faint light on the lip
     }
-    strokePath(sh, sh.ec, main, 1.1, 'rgba(255,255,255,1)');
+    strokePath(sh, sh.ec, main, 1.3, 'rgba(255,255,255,0.85)');         // light from beneath, inside the split only
 
     scene.add(paperMesh(sh, { key: 0.92, amb: 0.42, bump: 1.6 }));
     return { scene, camera };

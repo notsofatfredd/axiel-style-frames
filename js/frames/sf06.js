@@ -22,7 +22,7 @@ function frozenRain(n, seed) {
   let i = 0;
   for (; i < n; i++) {
     const rad = r.range(0.018, 0.04);
-    p.set(r.range(-16, 24), r.range(0.2, 22), r.range(-37.6, -13));
+    p.set(r.range(-22, 18), r.range(0.2, 22), r.range(-37.6, -13));
     s.set(rad, rad * r.range(2.2, 3.4), rad);
     im.setMatrixAt(i, m4.compose(p, q, s));
   }
@@ -88,8 +88,9 @@ export default {
     scene.add(stain);
     scene.add(frozenRain(tier === 'mid' ? 600 : 1500, 61));
     scene.add(beads(62, tier));
-    const camera = makeCamera(40, [4, 8, -9], [4, 11, -39]);
-    return { scene, camera, camNote: 'Mirror floor not in frame at K16 (bottom edge meets the façade at y 0.35).' };
+    // K16 slid 6 left (still face-on) so the repaired window sits right of the bottom-left copy column
+    const camera = makeCamera(40, [-2, 8, -9], [-2, 11, -39]);
+    return { scene, camera, camNote: 'K16 slid 6 units left, face-on kept, so the copy clears the window (PROPOSED). Mirror floor not in frame at K16.' };
   },
   overlay(ctx, vp, project) {
     const { u } = vp;

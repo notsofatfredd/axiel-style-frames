@@ -5,7 +5,7 @@ export default {
   id: 'SF-03', scene: 'ATLAS', moment: 'The face-on climb: veins lit, a carved line read face-on, specimens embedded beside it', p: '0.17',
   key: 'K4', cam: 'Face-on: carved line 2',
   phone: true,
-  bloom: [0.6, 0.5, 0.6], clear: HEX.ink,
+  bloom: [0.32, 0.28, 0.6], clear: HEX.ink,
   light: 'The gold veins are the key: --atlas-gold-hot emissive in the veins and the carved line (the only bloom), with their warm spill on the stone as a soft frontal --atlas-gold-hot fill. Tear daylight and the paper-wall bounce stay as fill. Ink exponential fog.',
   tokens: ['ink', 'graphite', 'stone', 'bone', 'gold', 'hot'],
   proposed: [

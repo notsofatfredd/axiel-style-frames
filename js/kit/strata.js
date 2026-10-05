@@ -79,6 +79,7 @@ function carveCanvas() {
   const c = canvas(PANEL_W * CPPU, 3 * STRIP * CPPU), x = c.getContext('2d');
   x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
   x.fillStyle = '#fff'; x.textBaseline = 'alphabetic'; x.textAlign = 'center';
+  x.filter = 'blur(2.5px)';              // a soft mask edge becomes the chisel's bevel in the height field
   LINES.forEach((L, i) => {
     const px = (L.cap / 0.7) * CPPU;
     setFont(x, 500, px, 'Montserrat', L.track);
@@ -91,8 +92,13 @@ function carveCanvas() {
 const STRATA_PARS = /* glsl */`
 uniform sampler2D uCarve; uniform vec3 uLineY; uniform float uB[13];
 uniform float uVein, uCarveGlow, uPanelW; uniform vec3 uGraph, uStoneC, uGoldC, uHot, uDress;
-float fV, fM, fD, fPar, fBand;
-float vf(vec2 p){ return fbm(p * vec2(0.075, 0.12) + vec2(7.0, 1.0)); }
+float fV, fVc, fM, fMa, fD, fPar, fBand;
+// vein field: stretched along the bedding (x) and domain-warped, so its isolines run as meandering cracks, not rings
+float vf(vec2 p){
+  vec2 q = p * vec2(0.16, 0.42) + vec2(7.0, 1.0);
+  q += 0.9 * vec2(vnoise(q * 1.7 + 4.1), vnoise(q * 1.7 + 9.3));
+  return vnoise(q * 1.3) + 0.35 * vnoise(q * 4.1 + 2.);
+}
 float carveM(vec2 p){
   float m = 0.;
   for (int i = 0; i < 3; i++) {
@@ -115,21 +121,29 @@ float strataH(){
   L = min(L, 11);
   fPar = mod(float(L), 2.);
   fBand = min(abs(p.y - uB[L]), abs(p.y - uB[L + 1]));
-  // veins: contour lines of a slow field, given a fixed world width with a finite-difference gradient
+  // veins: gold leaf laid in cracks. One main isoline and one hairline tributary of the field, at a fixed
+  // world width from a finite-difference gradient (main 0.012–0.04 wide, hairline half that), antialiased.
   float n = vf(p), e = 0.08;
   vec2 g = vec2(vf(p + vec2(e, 0.)) - n, vf(p + vec2(0., e)) - n) / e;
-  float lv = n * 5.;
-  float dist = abs(fract(lv) - 0.5) / 5. / max(length(g), 1e-3);
-  float w = 0.03 + 0.05 * vnoise(p * 0.4);
-  fV = (1. - smoothstep(w, w + 0.025, dist)) * smoothstep(0.35, 0.6, vnoise(p * 0.07 + 3.));
+  float gl = max(length(g), 1e-3);
+  float d1 = abs(n - 0.67) / gl, d2 = abs(n - 0.46) / gl;
+  float w = 0.006 + 0.014 * vnoise(p * 0.6 + 5.);
+  float aa = max(fwidth(d1), 1e-4);
+  float v1 = 1. - smoothstep(w - aa, w + aa, d1), v2 = 1. - smoothstep(w * 0.45 - aa, w * 0.45 + aa, d2);
+  // breaks: the leaf is laid in runs, not continuous loops
+  float runs = smoothstep(0.35, 0.6, vnoise(p * 0.07 + 3.)) * smoothstep(0.22, 0.42, vnoise(p * 0.8 + 11.));
+  fV = max(v1, v2 * smoothstep(0.3, 0.5, vnoise(p * 0.5 + 21.))) * runs;
+  fVc = (1. - smoothstep(0., w * 0.6 + aa, d1)) * runs;   // the emissive core of the main vein only
   fD = dressM(p);
-  fV *= 1. - fD;
-  fM = carveM(p);
+  fV *= 1. - fD; fVc *= 1. - fD;
+  fM = carveM(p);                        // soft (beveled) carve mask: depth from fM, gold floor from fMa
+  fMa = smoothstep(0.55, 0.85, fM);
   float h = 0.5 + 0.2 * fbm(p * vec2(0.9, 3.4)) + 0.07 * vnoise(p * 11.);
+  h += 0.1 * fbm(vec2(p.x * 0.6, p.y * 7.5));      // fine bedding laminations inside each layer
   h -= 0.32 * (1. - smoothstep(0.0, 0.14, fBand));
-  h -= 0.2 * fV;
+  h -= 0.25 * fV;
   h = mix(h, 0.55 + 0.03 * fbm(p * 7.), fD);
-  h -= 0.4 * fM;
+  h -= 0.7 * fM;
   return h;
 }`;
 
@@ -149,12 +163,14 @@ export async function makeStrata(o = {}) {
     albedo: `
       vec3 base = mix(uGraph, uStoneC, fPar);
       base *= 0.82 + 0.36 * fbm(wp.xy * vec2(0.5, 2.2) + fPar * 9.);
+      base *= 0.86 + 0.28 * fbm(vec2(wp.x * 0.4, wp.y * 9.) + fPar * 5.);   // laminations
       base *= 1.0 - 0.35 * (1. - smoothstep(0.0, 0.14, fBand));
       base = mix(base, uDress * (0.9 + 0.1 * h), fD * 0.85);
-      base = mix(base, uGoldC, max(fV, fM));
+      base *= 1. - 0.45 * fM * (1. - fMa);                                   // the cut's walls in shadow
+      base = mix(base, uGoldC, max(fV, fMa));
       diffuseColor.rgb = base;`,
-    rough: `roughnessFactor = mix(roughnessFactor, 0.72, fD); roughnessFactor = mix(roughnessFactor, 0.3, max(fV, fM)); metalnessFactor = max(fV, fM);`,
-    emis: `{ vec3 e = uHot * (fV * uVein * 1.6 + fM * uCarveGlow * 1.2); totalEmissiveRadiance += e; bloomE += e; }`,
+    rough: `roughnessFactor = mix(roughnessFactor, 0.72, fD); roughnessFactor = mix(roughnessFactor, 0.3, max(fV, fMa)); metalnessFactor = max(fV, fMa);`,
+    emis: `{ vec3 e = uHot * (fVc * uVein * 1.3 + fMa * uCarveGlow * 0.55); totalEmissiveRadiance += e; bloomE += e; }`,
   });
   const cliff = new THREE.Mesh(cliffGeometry(o), mat);
   cliff.receiveShadow = true; cliff.castShadow = false;
@@ -176,7 +192,8 @@ export async function makeStrata(o = {}) {
 /* ---------- specimens (PROPOSED stand-ins, G3 chooses the real 12) ----------
    Built merged across all 12, one mesh per material, so the whole set costs 7 draw calls
    (niches, stone sides, label atlas, symbol faces, site faces, brass graphs, graph backs). */
-const LABEL = { w: 1.15, h: 0.22, d: 0.05, ppu: 600 };
+// 1.66 wide: holds "SPECIMEN No. 0xx" at cap 0.09 inside the narrowest niche (symbol, 1.8)
+const LABEL = { w: 1.66, h: 0.22, d: 0.05, ppu: 600 };
 const TAB = { symbol: [1.3, 1.3, 0.16], site: [1.8, 1.2, 0.1] };
 
 /* a 1-segment box without its +z face (that face is drawn by a separate, textured plane) */
@@ -228,7 +245,7 @@ function siteCanvas() {
 }
 /* every "SPECIMEN No. 0xx" label in one atlas, one row each (mono, bone inlay, cap 0.1) */
 function labelAtlas(list) {
-  const rows = list.map(s => labelMask(LABEL.w, LABEL.h, [{ t: `SPECIMEN No. ${s.no}`, cap: 0.1, y: LABEL.h / 2 + 0.05, mono: true, w: 400, track: 0.08 }], { ppu: LABEL.ppu }));
+  const rows = list.map(s => labelMask(LABEL.w, LABEL.h, [{ t: `SPECIMEN No. ${s.no}`, cap: 0.09, y: LABEL.h / 2 + 0.045, mono: true, w: 400, track: 0.08 }], { ppu: LABEL.ppu }));
   const c = canvas(rows[0].width, rows[0].height * rows.length), x = c.getContext('2d');
   rows.forEach((r, i) => x.drawImage(r, 0, i * r.height));
   return c;

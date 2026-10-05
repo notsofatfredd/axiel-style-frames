@@ -2,6 +2,7 @@
  * The Cartographer (§3.3, G2-6): a folded-paper figure, about 1.8 tall, that walks the city
  * with a brass lantern (left hand) and an accordion map of the city (right hand).
  * Local frame: faces +z, feet at y = 0. Built first so its silhouette can be tested (cartographer.html).
+ * A pleated paper tunic (rigid, on the pelvis, no hinge) and the open map carry the fold lines into the silhouette.
  *
  * 20 hinges: waist, neck, shoulder L/R (fixed ±6° splay), elbow L/R, wrist L/R, hip L/R, knee L/R,
  * ankle L/R (all about local x) · lantern bail (free swivel, keeps the lantern upright) ·
@@ -12,17 +13,33 @@ import { THREE, HEX, col, DEG, MAT, canvas, canvasTex, setFont } from '../core.j
 import { plots, LAYOUT } from './city.js';
 
 /* ---------- convex lofts (flat-shaded folded paper) ---------- */
+// Triangles carry their fold lines in uv: [a, b, c, k] where corner k joins the triangle's two fold edges
+// (uv 0,0) and the third edge is a quad diagonal, not a fold. The paper shader draws a crease where
+// min(u, v) → 0, so only real folds get a line.
+function creased(T) {
+  const pos = [], uv = [];
+  for (const [a, b, c, k] of T) {
+    pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+    const others = [[1, 0], [0, 1]];
+    for (let i = 0; i < 3; i++) uv.push(...(i === k ? [0, 0] : others.shift()));
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.computeVertexNormals();
+  return g;
+}
 // rings: arrays of 4 points ordered +x, +z, −x, −z; caps: apex point or null (flat cap)
 function loft(rings, top = null, bot = null) {
   const P = [];
-  const tri = (a, b, c) => P.push(a, b, c);
+  const tri = (a, b, c, k) => P.push([a, b, c, k]);
   for (let r = 0; r < rings.length - 1; r++) {
     const A = rings[r], B = rings[r + 1];
-    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; tri(A[i], A[j], B[j]); tri(A[i], B[j], B[i]); }
+    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; tri(A[i], A[j], B[j], 1); tri(A[i], B[j], B[i], 2); }
   }
   const capR = (R, apex) => {
-    if (apex) for (let i = 0; i < 4; i++) tri(R[i], R[(i + 1) % 4], apex);
-    else { tri(R[0], R[1], R[2]); tri(R[0], R[2], R[3]); }
+    if (apex) for (let i = 0; i < 4; i++) tri(R[i], R[(i + 1) % 4], apex, 0);
+    else { tri(R[0], R[1], R[2], 1); tri(R[0], R[2], R[3], 2); }
   };
   capR(rings[0], bot); capR(rings[rings.length - 1], top);
   // orient every triangle outward (all shapes are convex)
@@ -30,35 +47,55 @@ function loft(rings, top = null, bot = null) {
   for (const R of rings) for (const p of R) { cen.add(p); n++; }
   if (top) { cen.add(top); n++; } if (bot) { cen.add(bot); n++; }
   cen.divideScalar(n);
-  const pos = [];
   const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3(), c = new THREE.Vector3();
-  for (let i = 0; i < P.length; i += 3) {
-    let [a, b, d] = [P[i], P[i + 1], P[i + 2]];
+  return creased(P.map(([a, b, d, k]) => {
     e1.subVectors(b, a); e2.subVectors(d, a); nn.crossVectors(e1, e2);
     c.copy(a).add(b).add(d).divideScalar(3).sub(cen);
-    if (nn.dot(c) < 0) [b, d] = [d, b];
-    pos.push(a.x, a.y, a.z, b.x, b.y, b.z, d.x, d.y, d.z);
+    return nn.dot(c) < 0 ? [a, d, b, [0, 2, 1][k]] : [a, b, d, k];
+  }));
+}
+/* pleated tunic hanging from the waist to mid-thigh: an accordion of folds flaring to a zig-zag hem, so the
+   fold lines carry the silhouette (§3.1 silhouette rule). Open at the hem, no sleeves, no hood. PROPOSED (G2 review). */
+function tunic(n = 20) {
+  const T = [], H = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2, s = i % 2 ? 0.84 : 1; // even = mountain fold (out, longer), odd = valley
+    T.push(V(Math.cos(a) * 0.112 * (i % 2 ? 0.9 : 1), 0.035, Math.sin(a) * 0.072 * (i % 2 ? 0.9 : 1)));
+    H.push(V(Math.cos(a) * 0.21 * s, i % 2 ? -0.26 : -0.31, Math.sin(a) * 0.19 * s));
   }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.computeVertexNormals();
-  return g;
+  const P = [];
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; P.push([T[i], T[j], H[j], 1], [T[i], H[j], H[i], 2]); }
+  return creased(P);
 }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const glv = (c) => `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`;
+/* §3.1 material: --paper with --bone fold shadows. Each facet sits at its own angle to the light, so it takes its
+   own tone between paper and bone (bone where it turns under), and every fold carries a hairline crease in --stone. */
+const FOLDS = {
+  varyings: 'varying vec2 vFold;',
+  vertex: 'vFold = uv;',
+  albedo: `
+    float fh = fract(sin(dot(floor(wn * 9.0 + 0.5), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    diffuseColor.rgb = mix(diffuseColor.rgb, ${glv(col('bone'))}, clamp(0.12 + 0.45 * fh + 0.45 * smoothstep(0.3, -0.7, wn.y), 0.0, 1.0));
+    float ce = min(vFold.x, vFold.y), aa = max(fwidth(ce), 1e-4);
+    diffuseColor.rgb = mix(diffuseColor.rgb, ${glv(col('stone'))}, 0.6 * (1.0 - smoothstep(0.6 * aa, 1.6 * aa, ce)));`,
+};
 const ring = (y, w, f, b, ox = 0, oz = 0) => [V(ox + w / 2, y, oz), V(ox, y, oz + f), V(ox - w / 2, y, oz), V(ox, y, oz - b)];
 // a limb segment hanging down from its joint (diamond section = a strip folded along its front and back creases)
 const limb = (len, top, bot) => loft([ring(-len, ...bot), ring(0, ...top)]);
 
 /* ---------- poses (degrees) ---------- */
 export const POSES = {
-  raise_lantern: { shL: -150, elL: -10, shR: -60, elR: -40, hipL: -12, knL: 8, anL: 4, hipR: 10, knR: 4, anR: -14, waist: 4, neck: -8, fold: 28, mapTilt: -22, raised: true },
-  walk: { hipL: -25, knL: 15, anL: 6, hipR: 20, knR: 35, anR: -10, shL: -20, elL: -20, shR: -45, elR: -55, waist: 3, neck: 6, fold: 150, mapTilt: -35 },
+  // the map stays open low in the right hand, outboard of the body (mapX = share of its width inboard of the hand),
+  // so it reads in the silhouette from behind as well as in front (G2 review: folded to 28° it vanished at K8)
+  raise_lantern: { shL: -150, elL: -10, shR: -30, elR: -50, hipL: -12, knL: 8, anL: 4, hipR: 10, knR: 4, anR: -14, waist: 4, neck: -8, fold: 120, mapTilt: -30, mapX: 0.15, raised: true },
+  walk: { hipL: -25, knL: 15, anL: 6, hipR: 20, knR: 35, anR: -10, shL: -20, elL: -20, shR: -45, elR: -55, waist: 3, neck: 6, fold: 150, mapTilt: -35, mapX: 0.25 },
   idle: { shL: -5, elL: -15, shR: -30, elR: -60, fold: 172, mapTilt: -10 },
 };
 const HINGES = ['waist', 'neck', 'shL', 'shR', 'elL', 'elR', 'wrL', 'wrR', 'hipL', 'hipR', 'knL', 'knR', 'anL', 'anR'];
 
 /* ---------- the map (city plan in stone ink, two red findings: PROPOSED M2) ---------- */
-const PW = 0.14, PH = 0.46, PANELS = 5;
+const PW = 0.16, PH = 0.5, PANELS = 5; // 0.8 × 0.5 open: big enough to share the silhouette with the body (§3.1)
 export function mapCanvas(o = {}) {
   const S = o.ppu ?? 1400;
   const c = canvas(Math.round(PW * PANELS * S), Math.round(PH * S)), x = c.getContext('2d');
@@ -150,7 +187,7 @@ function beamMesh() {
 export async function makeCartographer(o = {}) {
   const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
   try { await document.fonts.load('500 40px Montserrat'); } catch (e) { /* font optional for the map */ }
-  const paper = MAT.paper({ k: o.k ?? 'paper', bump: 0.006 });
+  const paper = MAT.paper({ k: o.k ?? 'paper', bump: 0.006, ...FOLDS });
   const root = new THREE.Group(); root.name = 'cartographer';
   const body = new THREE.Group(); root.add(body);
   const J = {};
@@ -165,6 +202,7 @@ export async function makeCartographer(o = {}) {
   // pelvis (inverted pyramid) hangs below the waist joint at y 1.02
   const pelvis = joint(body, null, [0, 1.02, 0]);
   add(pelvis, loft([ring(0, 0.2, 0.06, 0.06)], null, V(0, -0.12, 0.005)));
+  add(pelvis, tunic());
   // torso: kite bipyramid (waist ring → chest ring → neck point)
   const waist = joint(pelvis, 'waist', [0, 0, 0]);
   add(waist, loft([ring(0.0, 0.15, 0.045, 0.045), ring(0.34, 0.38, 0.1, 0.075)], V(0, 0.5, -0.01), null));
@@ -200,7 +238,7 @@ export async function makeCartographer(o = {}) {
   light.position.copy(lan.g.userData.centre);
   if (o.lanternShadow) { light.castShadow = true; light.shadow.mapSize.set(512, 512); light.shadow.bias = -0.002; light.shadow.camera.near = 0.15; }
   lan.g.add(light);
-  const spot = new THREE.SpotLight(col('lantern'), 125, 0, 21 * DEG, 0.55, 2);
+  const spot = new THREE.SpotLight(col('lantern'), 125, 0, 9 * DEG, 0.55, 2);
   spot.castShadow = o.spotShadow !== false;
   spot.shadow.mapSize.set(2048, 2048); spot.shadow.bias = -0.0006; spot.shadow.normalBias = 0.03; spot.shadow.radius = 5;
   spot.shadow.camera.near = 0.3; spot.shadow.camera.far = 40;
@@ -238,7 +276,8 @@ export async function makeCartographer(o = {}) {
     // map folds: accordion, alternate valley / mountain; P.fold = interior angle between panels (180 = flat)
     const a = (180 - (P.fold ?? 170)) * DEG;
     folds.forEach((f, i) => { f.rotation.y = (i % 2 ? -a : a); });
-    mapOff.position.x = -PW * PANELS * Math.cos(a / 2) * 0.5;
+    mapOff.rotation.y = -a / 2; // panels sit at ±a/2, a symmetric zig-zag about the attach direction
+    mapOff.position.x = -PW * PANELS * Math.cos(a / 2) * (P.mapX ?? 0.5);
     root.updateMatrixWorld(true);
     // ground the lowest foot
     let minY = Infinity;
@@ -265,10 +304,12 @@ export async function makeCartographer(o = {}) {
     const raised = a.raised ?? cur?.raised;
     spot.position.copy(p);
     spot.target.position.copy(target);
+    // §3.1: raise_lantern widens the beam 18° → 42° at ×2.2 intensity (read as the full cone; spot.angle is the half-angle)
     spot.intensity = a.intensity ?? (raised ? 275 : 125);
-    const d = target.clone().sub(p), L = d.length() * (a.reach ?? 1.05);
+    spot.angle = (raised ? 21 : 9) * DEG;
+    const d = target.clone().sub(p), L = d.length() * (a.reach ?? 1.05), t = Math.tan(spot.angle);
     beam.position.copy(p);
-    beam.scale.set(Math.tan(21 * DEG) * L, L, Math.tan(21 * DEG) * L);
+    beam.scale.set(t * L, L, t * L);
     beam.quaternion.setFromUnitVectors(V(0, -1, 0), d.normalize());
     beam.material.uniforms.uS.value = a.beam ?? (raised ? 0.06 : 0.035);
     light.intensity = a.lanternI ?? (raised ? 6 : 4);

@@ -1,7 +1,8 @@
 """Build the review gallery from the per-frame render artifacts.
 
-Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number]
+Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir]
   parts_dir: one folder per frame job, each with PNGs and render-log.json (from tools/render.mjs)
+  carto_dir: optional, the Cartographer silhouette test from tools/carto.mjs (PNGs + carto.json)
   out_dir:   writes full/*.png, thumbs/*.jpg, render-log.md, render-log.json, index.html
 
 The gallery shows finished PNGs only, so viewing it never renders 3D on the viewer's device.
@@ -20,7 +21,7 @@ SCENE = {'SF-01': 'Surface', 'SF-02': 'Fall', 'SF-03': 'ATLAS', 'SF-04': 'INDEX'
 VARIANT = [('high', 'desktop'), ('mid', 'desktop'), ('high', 'phone'), ('mid', 'phone')]
 
 
-def main(parts, out, run):
+def main(parts, out, run, carto=None):
     parts, out = Path(parts), Path(out)
     (out / 'full').mkdir(parents=True, exist_ok=True)
     (out / 'thumbs').mkdir(exist_ok=True)
@@ -76,6 +77,17 @@ def main(parts, out, run):
                 f'<figcaption><b>{label}</b><span>{stats}</span></figcaption></figure>')
         cards.append(f'<section id="{fid.lower()}"><h2><span>{fid}</span> {SCENE[fid]}</h2><div class="shots">{"".join(shots)}</div></section>')
 
+    # G2-6: the Cartographer silhouette test, shown as captured (small flat-black PNGs, no thumbnails needed)
+    carto_html = ''
+    cj = Path(carto) / 'carto.json' if carto else None
+    if cj and cj.exists():
+        c = json.loads(cj.read_text(encoding='utf-8'))
+        shutil.copytree(carto, out / 'carto', dirs_exist_ok=True)
+        figs = ''.join(f'<figure><a href="carto/{html.escape(f["file"])}"><img src="carto/{html.escape(f["file"])}" alt="{html.escape(f["cap"])}" loading="lazy"></a>'
+                       f'<figcaption><span>{html.escape(f["cap"])}</span></figcaption></figure>' for f in c.get('files', []))
+        nums = f"{c.get('tris', '?')} triangles (≤ 10 000) · {c.get('hinges', '?')} hinges (≤ 30)" + (f" · GATE: {html.escape(c['gate'])}" if c.get('gate') else '')
+        carto_html = (f'<section id="carto"><h2><span>G2-6</span> Cartographer silhouette test</h2><p class="meta">{nums} · '
+                      f'<a href="../cartographer.html">live page</a></p><div class="shots">{figs}</div></section>')
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -110,9 +122,9 @@ footer {{ padding-top: 32px; padding-bottom: 48px; font-size: 13px; color: var(-
 <h1><b>AXIEL</b> · Gate G2 style frames</h1>
 <p class="meta">{ok} of {len(log)} rendered · run {html.escape(str(run))} · {when}<br>
 Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <a href="../">live harness (renders on your device, heavy)</a></p>
-<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}</nav>
+<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}</nav>
 </header>
-<main>{''.join(cards)}</main>
+<main>{''.join(cards)}{carto_html}</main>
 <footer>Rendered by the Render frames workflow on GitHub Actions (software WebGL). Numbers are a headless check, not a visual review.</footer>
 </body></html>
 """
@@ -122,4 +134,4 @@ Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local')
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local', sys.argv[4] if len(sys.argv) > 4 else None)
