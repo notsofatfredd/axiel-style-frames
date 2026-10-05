@@ -123,9 +123,11 @@ jobs:
           retention-days: 30
 
   deploy:
-    # default success(): skipped if any frame failed or went over budget, so Pages keeps the last good set
+    # default success(): skipped if any frame failed or went over budget, so Pages keeps the last good set.
+    # Only the gallery branch deploys (repo variable GALLERY_BRANCH, else worktree-g2-v14): side branches
+    # render and upload artifacts for review without overwriting the public gallery.
     needs: [render, carto, collect]
-    if: ${{ success() && !github.event.inputs.frames }}
+    if: ${{ success() && !github.event.inputs.frames && github.ref_name == (vars.GALLERY_BRANCH || 'worktree-g2-v14') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
