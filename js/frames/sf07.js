@@ -26,6 +26,7 @@ export default {
   unknown: [
     'Card legibility: cap 0.25 reads ≈ 16px at 1440×810 and ≈ 18px at 1440×900 (the §7 test size); phone ≈ 14.3px. Both meet the minimum only at their test sizes.',
     'The real og:image is not made yet (G2-1 says the fix supplies it).',
+    'Nameplate business details: AXIEL, axiel.co.za and info@axiel.co.za (the protocol\'s form address) are shown; the address and anything else the structured data will carry are UNKNOWN until the INDEX run (M5).',
   ],
   audit: [
     ['Share card in the window', 'The proof: the missing preview now exists', 'Real title + description of axiel.co.za (G2-1)'],
@@ -53,9 +54,10 @@ export default {
 };
 
 /* ---------- SF-07b · K18 · the ranked result printed on the back of the paper wall ---------- */
-const SHEET = { w: 40, h: 20, cy: 4 };      // 40 wide: K18 slides 5 left on desktop and the sheet edge must stay out of frame
+const SHEET = { w: 46, h: 26, cy: 2 };      // 46 × 26: at both K18 keys every sheet edge stays out of frame (checked by projection)
 const BLOCK = { x: 0, y: 6, w: 8, h: 6 };   // PROPOSED: 8 × 6 (protocol: 16 × 6); 6.6 wide on phone so it keeps a 24 px margin
-const K18 = { desk: [[-5, 5, -16], [-5, 4, 0]], phone: [[0, 4, -17.5], [0, 3, 0]] };
+// K18 looks along +z at the back face, so screen-right is world −x: the desktop key sits at +6 to push the tear right of the copy column
+const K18 = { desk: [[6, 5, -16], [6, 4, 0]], phone: [[0, 2.6, -18.5], [0, 1.6, 0]] };
 const TEAR_R = 3;
 
 function tearOutline(r) {
@@ -79,8 +81,9 @@ export const alt = {
     'K18 itself (protocol marks it PROPOSED).',
     'Printed result block 8 × 6 centred at (0, 6), above the tear (protocol says 16 × 6; 8 wide fits a phone).',
     'Result layout: rank and query, URL in mono, title (cap 0.34), description (cap 0.29). Printed in --ink on the bone back face.',
-    'Desktop key: K18 slid 5 left to (−5, 5, −16), so the tear and the result sit right of the copy column and the closing line never crosses the tear.',
-    'Phone key: K18 at (0, 4, −17.5) looking at (0, 3, 0), result block 6.6 wide so it keeps the 24 px margin.',
+    'Desktop key: K18 at (6, 5, −16) looking at (6, 4, 0), so on screen the tear and the result sit right of the copy column (tear from x ≈ 852 of 1440, copy ends ≈ 808) and the closing line never crosses the tear.',
+    'Phone key: K18 at (0, 2.6, −18.5) looking at (0, 1.6, 0), so the tear ends above the closing line and the result clears the counter; result block 6.6 wide so it keeps the 24 px margin.',
+    'Back face sheet 46 × 26 so no edge shows at either key.',
     'No street lip in the foreground (G2 review: at K18 it covered the closing line).',
     'The result sits above the tear, not wrapped around it as the protocol says: wrapping the copy round the tear is left for the CD to decide.',
     'Closing line set as the scene copy.',
@@ -137,7 +140,7 @@ export const alt = {
     scene.add(sheet);
     const k = vp.phone ? K18.phone : K18.desk;
     const camera = makeCamera(54, k[0], k[1]);
-    return { scene, camera, camNote: vp.phone ? 'Phone: K18 at (0, 4, −17.5), block 6.6 wide (PROPOSED).' : 'K18 slid 5 left so the closing line clears the tear (PROPOSED).', blockBottom: y };
+    return { scene, camera, camNote: vp.phone ? 'Phone: K18 at (0, 2.6, −18.5) → (0, 1.6, 0), block 6.6 wide (PROPOSED).' : 'K18 at (6, 5, −16) → (6, 4, 0) so the closing line clears the tear (PROPOSED).', blockBottom: y };
   },
   overlay(ctx, vp) {
     sceneCopy(ctx, vp, { name: 'PROOF', line: CLOSING, color: HEX.ink, accent: HEX.stone, shadow: false });

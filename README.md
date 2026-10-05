@@ -94,7 +94,7 @@ Every frame's notes panel lists its full light description, tokens, PROPOSED and
 ## PROPOSED (needs Creative Director OK at G2)
 
 **Shared**
-- Display window 6 × 5.2 and nameplate 3.6 × 1.4 on the fault building (G2-1: empty window = no share preview, blank nameplate = no business details).
+- Display window 6 × 5.2 and nameplate 4.2 × 1.55 on the fault building (G2-1: empty window = no share preview, blank nameplate = no business details).
 - Share card in the repaired window: the real title and description, with the AXIEL symbol standing in for the og:image (cap 0.25).
 - City block map is provisional (G2-8, `docs/city-plot-map.md`).
 - Night fill (SF-04, SF-07): night-sky hemisphere π·0.85 / π·0.8 and cold moon π·0.2. Set from numbers, not a visual review (see Render check).

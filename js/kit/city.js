@@ -210,7 +210,7 @@ export const FB = {
   ground: 8.2, floorH: 2.4, navY: [20.2, 21.2],
   win: { x0: 1, x1: 7, y0: 1.8, y1: 7.0 },                 // display window 6 × 5.2 (PROPOSED, was 6 × 4)
   door: { x0: 7.5, x1: 8.7, y1: 3.0 },
-  plate: { x0: 3.4, x1: 7.0, y0: 0.25, y1: 1.65 },         // nameplate 3.6 × 1.4 (PROPOSED, was 1.6 × 0.8)
+  plate: { x0: 2.8, x1: 7.0, y0: 0.1, y1: 1.65 },          // nameplate 4.2 × 1.55 (PROPOSED, was 3.6 × 1.4): the email line at the legibility cap needs ≈ 3.6
   fascia: { x0: -0.6, x1: 8.6, y0: 7.2, y1: 8.05 },
 };
 const PPU = 400; // texture px per world unit for legible panels
@@ -273,11 +273,14 @@ function nameplateCanvas(filled) {
     const [a, b, d] = SITE.business;
     setFont(x, 500, 0.3 * PPU / 0.7, 'Montserrat', 0.12);
     x.textAlign = 'center';
-    let y = 0.18 * PPU + 0.3 * PPU;
+    let y = (c.height - (0.3 * PPU + 2 * pitch)) / 2 + 0.3 * PPU;   // block centred: first cap top to last baseline
     x.fillText(a, c.width / 2 + 0.018 * PPU, y);
     setFont(x, 400, cap / 0.7, 'Montserrat', 0.02);
     y += pitch; x.fillText(b, c.width / 2, y);
     y += pitch; x.fillText(d, c.width / 2, y);
+    // every line must sit inside the bevelled border at the legibility cap (§4.1 rule 7), or the render gate fails
+    const room = c.width - 0.36 * PPU;
+    for (const t of [b, d]) if (x.measureText(t).width > room) console.error(`nameplate: "${t}" is ${(x.measureText(t).width / PPU).toFixed(2)} wide, room ${(room / PPU).toFixed(2)}`);
   }
   // bevelled border inlay
   x.strokeStyle = '#fff'; x.lineWidth = 0.025 * PPU; x.strokeRect(0.06 * PPU, 0.06 * PPU, c.width - 0.12 * PPU, c.height - 0.12 * PPU);

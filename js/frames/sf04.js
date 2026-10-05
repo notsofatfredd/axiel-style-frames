@@ -38,7 +38,7 @@ export default {
     'Cartographer form: a pleated paper tunic to mid-thigh and the map held open low in the right hand, outboard of the body, so folds and map carry the silhouette (G2-6).',
     'Beam 18° → 42° read as the full cone angle (half-angle 9° → 21°).',
     'Buildings the beam has passed keep a low bone window light (read as "indexed"). Not bloom.',
-    'Display window 6 × 5.2 and nameplate 3.6 × 1.4 (G2-1 faults: empty window = no share preview, blank nameplate = no business details).',
+    'Display window 6 × 5.2 and nameplate 4.2 × 1.55, sized so the email line fits at the legibility cap (G2-1 faults: empty window = no share preview, blank nameplate = no business details).',
     'City block map is provisional (G2-8, docs/city-plot-map.md).',
   ],
   unknown: [],

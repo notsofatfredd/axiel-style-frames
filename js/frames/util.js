@@ -45,6 +45,8 @@ export function leaderLabel(ctx, vp, text, at, pt, color = HEX.pass) {
   // keep the whole label inside the safe margin (clear of the scroll counter): slide the label end inward
   const right = pt.x >= at.x, tw = ctx.measureText(text).width, m = (vp.phone ? 24 : 64) * u, { W, H } = vp;
   const end = { x: right ? Math.min(pt.x, W - m - tw - 6 * u) : Math.max(pt.x, m + tw + 6 * u), y: Math.min(Math.max(pt.y, m * 0.6), H - m * 0.6) };
+  // a label must point at something on screen: an off-frame anchor, or a clamp that drags the text back over its own drop, fails the render gate
+  if (!(at.x >= 0 && at.x <= W && at.y >= 0 && at.y <= H) || (right ? end.x < at.x : end.x > at.x)) console.error(`leaderLabel "${text}": anchor (${Math.round(at.x)}, ${Math.round(at.y)}) off frame or behind its label`);
   ctx.beginPath(); ctx.moveTo(at.x, at.y); ctx.lineTo(end.x, end.y); ctx.stroke();
   ctx.beginPath(); ctx.arc(at.x, at.y, 2.6 * u, 0, Math.PI * 2); ctx.fill();
   ctx.shadowColor = 'rgba(11,11,12,0.7)'; ctx.shadowBlur = 8 * u;
