@@ -123,8 +123,8 @@ export function active(p, s) {
  *           (Fritsch-Butland), so speed is continuous everywhere and eases to rest into and out of each hold.
  *   shots   EASE_CAMERA over each shot, a run of keys between two holds (PROPOSED reading of "default for camera
  *           segments"): far faster in the middle of long shots.
- * G5 measured peak speed / turn on desktop: linear 55 u/s / 163 °/s, smooth 69 / 177, shots 157 / 327; speed jumps
- * over 1.5× in a frame: linear 17, smooth 0. CD and the motion test choose (see the animatic). */
+ * G5 measured (run 25) peak speed / turn on desktop: linear 55 u/s / 162 °/s, smooth 69 / 177, shots 157 / 327; speed jumps
+ * over 1.5× in a frame: linear 13, smooth 0. CD and the motion test choose (see the animatic). */
 export const CAMERA_SHOTS = ['K0', 'K2', 'K3b', 'K4a', 'K4', 'K4c', 'K9', 'K9h', 'K14', 'K16', 'K17', 'K18', 'K20'];
 const HOLDS = [...new Set([0, ...CAMERA_SHOTS.map(k => KEYS.find(x => x.key === k).p), 1])].sort((a, b) => a - b);
 const segOf = (P, p) => { let i = 0; while (i < P.length - 2 && p >= P[i + 1]) i++; return i; };

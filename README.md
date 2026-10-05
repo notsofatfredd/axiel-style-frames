@@ -11,7 +11,7 @@ Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3
 | G2 style frames | **Self-reviewed (4 passes), awaiting CD signature.** Every render and gate check passes; the decisions only the CD can make are listed under [For the CD](#for-the-cd-g2-sign-off). |
 | G3 hero objects | **Self-reviewed (2 passes), awaiting CD signature.** Every object inside budget, all eight Cartographer animations and the dart built. Human blockers listed under [G3](#g3-hero-objects). |
 | G4 camera path and animatic | **Self-reviewed (2 passes), awaiting CD signature.** Clearance and legibility pass on desktop and phone; storyboard and 1080p animatic in the gallery. Human blockers listed under [G4](#g4-camera-path-and-animatic). |
-| G5 motion lock | **In progress.** Timing table, carriers and reverse-scroll test in code and CI. See [G5](#g5-motion-lock). |
+| G5 motion lock | **Self-reviewed (2 passes), awaiting CD signature.** All timing checks, the seven carriers and the reverse-scroll test pass on both viewports in every camera mode. Human blockers listed under [G5](#g5-motion-lock). |
 | G6 to G11 | Not started. |
 
 No gate is signed by the build itself. "Self-reviewed" means every checklist item was checked against the renders, not that it is approved.
@@ -254,34 +254,34 @@ Headless numeric check only; the visual review is above. All 24 deliverable PNGs
 Budgets (§7.2): desktop ≤ 150 calls and ≤ 500k triangles; phone ≤ 80 calls and ≤ 150k triangles. "Calls" is scene calls / total calls including the post chain. Every frame is inside budget. Phone SF-07 high uses 78 of 80 total calls; 47 of those are the post chain, not the scene.
 
 <!-- run-table -->
-Run 24.
+Run 25.
 
 | Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |
 |---|---|---|---|---|---|---|---|---|---|
-| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 254 | 0.0% | 0.0% | 239 / 4294 | 0 |
-| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 250 | 0.0% | 0.0% | 220 / 2517 | 0 |
-| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 406 / 3006 | 0 |
-| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 366 / 2383 | 0 |
-| SF-03 | high · desktop | 2560×1440 | 15 / 46 | 30,482 | 30 / 11 / 33 / 56 / 98 / 223 | 0.6% | 0.0% | 384 / 2847 | 0 |
-| SF-03 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 29 / 10 / 32 / 56 / 84 / 220 | 0.6% | 0.0% | 360 / 2516 | 0 |
-| SF-03 | high · phone | 1170×2532 | 15 / 46 | 30,482 | 35 / 11 / 37 / 57 / 94 / 218 | 0.0% | 0.0% | 417 / 3877 | 0 |
-| SF-03 | mid · phone | 1170×2532 | 15 / 18 | 30,482 | 34 / 11 / 37 / 57 / 76 / 205 | 0.0% | 0.0% | 411 / 3366 | 0 |
-| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,200 | 14 / 1 / 9 / 42 / 157 / 214 | 14.9% | 0.0% | 314 / 3212 | 0 |
-| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,976 | 14 / 1 / 10 / 41 / 157 / 213 | 14.8% | 0.0% | 294 / 2697 | 0 |
-| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 57 / 0 / 70 / 97 / 159 / 229 | 13.0% | 0.0% | 313 / 3604 | 0 |
-| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 62 / 1 / 80 / 96 / 155 / 229 | 8.8% | 0.0% | 272 / 3266 | 0 |
-| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 22 / 61 / 143 / 210 | 0.0% | 0.0% | 283 / 2599 | 0 |
-| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 27 / 10 / 21 / 61 / 143 / 210 | 0.0% | 0.0% | 239 / 1915 | 0 |
-| SF-07 | high · desktop | 2560×1440 | 32 / 80 | 7,712 | 27 / 1 / 6 / 172 / 201 / 237 | 25.2% | 0.0% | 254 / 1876 | 0 |
-| SF-07 | mid · desktop | 2560×1440 | 32 / 35 | 3,488 | 27 / 1 / 6 / 172 / 201 / 237 | 25.1% | 0.0% | 277 / 1466 | 0 |
-| SF-07 | high · phone | 1170×2532 | 32 / 80 | 7,712 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 223 / 1457 | 0 |
-| SF-07 | mid · phone | 1170×2532 | 32 / 35 | 3,488 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 224 / 1364 | 0 |
-| SF-07b | high · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 210 / 518 | 0 |
-| SF-07b | mid · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 203 / 461 | 0 |
-| SF-07b | high · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 202 / 469 | 0 |
-| SF-07b | mid · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 195 / 466 | 0 |
-| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 279 / 951 | 0 |
-| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 242 / 1326 | 0 |
+| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 254 | 0.0% | 0.0% | 225 / 4228 | 0 |
+| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 250 | 0.0% | 0.0% | 205 / 2477 | 0 |
+| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 233 / 1399 | 0 |
+| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 291 / 1541 | 0 |
+| SF-03 | high · desktop | 2560×1440 | 15 / 46 | 30,482 | 30 / 11 / 33 / 56 / 98 / 223 | 0.6% | 0.0% | 282 / 1475 | 0 |
+| SF-03 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 29 / 10 / 32 / 56 / 84 / 220 | 0.6% | 0.0% | 242 / 1514 | 0 |
+| SF-03 | high · phone | 1170×2532 | 15 / 46 | 30,482 | 35 / 11 / 37 / 57 / 94 / 218 | 0.0% | 0.0% | 291 / 2456 | 0 |
+| SF-03 | mid · phone | 1170×2532 | 15 / 18 | 30,482 | 34 / 11 / 37 / 57 / 76 / 205 | 0.0% | 0.0% | 259 / 2049 | 0 |
+| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,200 | 14 / 1 / 9 / 42 / 157 / 214 | 14.9% | 0.0% | 199 / 2094 | 0 |
+| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,976 | 14 / 1 / 10 / 41 / 157 / 213 | 14.8% | 0.0% | 196 / 1932 | 0 |
+| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 57 / 0 / 70 / 97 / 159 / 229 | 13.0% | 0.0% | 320 / 4339 | 0 |
+| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 62 / 1 / 80 / 96 / 155 / 229 | 8.8% | 0.0% | 311 / 3688 | 0 |
+| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 22 / 61 / 143 / 210 | 0.0% | 0.0% | 244 / 1995 | 0 |
+| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 27 / 10 / 21 / 61 / 143 / 210 | 0.0% | 0.0% | 236 / 1851 | 0 |
+| SF-07 | high · desktop | 2560×1440 | 32 / 80 | 7,712 | 27 / 1 / 6 / 172 / 201 / 237 | 25.2% | 0.0% | 459 / 3366 | 0 |
+| SF-07 | mid · desktop | 2560×1440 | 32 / 35 | 3,488 | 27 / 1 / 6 / 172 / 201 / 237 | 25.1% | 0.0% | 373 / 2107 | 0 |
+| SF-07 | high · phone | 1170×2532 | 32 / 80 | 7,712 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 329 / 2607 | 0 |
+| SF-07 | mid · phone | 1170×2532 | 32 / 35 | 3,488 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 331 / 2482 | 0 |
+| SF-07b | high · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 210 / 493 | 0 |
+| SF-07b | mid · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 207 / 461 | 0 |
+| SF-07b | high · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 208 / 472 | 0 |
+| SF-07b | mid · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 206 / 473 | 0 |
+| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 290 / 942 | 0 |
+| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 296 / 1302 | 0 |
 <!-- /run-table -->
 
 The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers except where bloom is involved: bloom kernels are fixed in pixels, so at quarter size the glow spread about 4× wider.
@@ -296,7 +296,7 @@ The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers ex
 `objects.html` builds every §3.2 / §3.3 hero object with its production kit, counts it against its budget, and renders lit turnarounds (front, side, back, ¾) on a graphite studio set. The objects job in CI captures it into the gallery's OBJECTS section and fails on any over-budget row unless the row is marked CEILING with a written reason and fallback (§2.5 rule 5).
 
 <!-- objects-table -->
-Run 24, objects gate: pass.
+Run 25, objects gate: pass.
 
 | Object | Measured | Budget | Draw calls | Result | Notes |
 |---|---|---|---|---|---|
@@ -357,7 +357,7 @@ Not faults: the strata cliff is a thin slab seen side-on, fine for the face-on c
 | Storyboard approved | One thumbnail per key in the gallery. Needs CD approval |
 | Grey-box animatic approved, desktop and phone | Both MP4s in the gallery. Needs CD approval |
 | Clearance passes (`docs/clearance.md`) | **PASS** on both viewports, run 24 |
-| Legibility at K4a to K4c, K17, K18, K16 | **PASS** on both viewports, run 24 (K16 drop labels are triggered, checked at G5) |
+| Legibility at K4a to K4c, K17, K18, K16 | **PASS** on both viewports, run 24 (K16 drop labels are triggered on freeze, built and checked at G6) |
 | No motion sickness, 3-person test | Needs three people. The pacing flags below are the segments to watch |
 | Keyframe table final | Needs CD lock. The keys changed at G4 are listed below |
 | Generic audit | Needs a person |
@@ -402,6 +402,65 @@ Changed keys (PROPOSED, need the CD lock): K4a, K10, K17, K17b, K18, K18b, and t
 3. Pacing (linear camera, §5.1 default): the fastest move is K3 to K3b at the end of the fall (55 u/s desktop, 73 phone), the fastest turn is K13 to K14 (162 / 217 °/s), and the closing turns K19 to K20 are also flagged. The speed changes sharply at several keys (up to ×4.6). These are the segments to watch in the motion test; G5 offers a speed-continuous camera timing as a PROPOSED alternative.
 
 **G4 blockers that need a person:** plot map, storyboard and animatic approval; the 3-person motion test; the key lock; the generic audit.
+
+## G5 motion lock
+
+`js/timeline.js` holds the §5.1 easing constants, the §5.3 timing table (every row with its p window, type, ease and source), the §5.4 transition carriers, the copy and the checks. The animatic job plays the timeline over the grey box, writes `timing.md` and fails on any timing check or reverse-scroll miss. The animatic page shows the beats and copy in the HUD.
+
+**Checklist (protocol G5):**
+
+| Item | Status |
+|---|---|
+| Easing library implemented as constants | **Done.** `EASE.CAMERA / ARRIVE / DEPART / LINEAR / STAMP` in `js/timeline.js`; the check confirms all 18 eased rows use one of them |
+| Timing table approved against the animatic | Table and four animatics (desk and phone, linear and smooth camera) in the gallery. Needs CD approval |
+| Timing beats for the four system lines | **Set.** ATLAS is the three carved lines at 0.15 / 0.17 / 0.19; INDEX 0.25 to 0.40, DEVOS 0.47 to 0.58, AMOS 0.66 to 0.80, in loop order and never overlapping (windows PROPOSED) |
+| Hero line fade-out window (before 0.07) | **Set.** 0.060 to 0.068, so SF-01 still shows the whole line at K1 and it is gone before the tear at 0.07 (PROPOSED) |
+| Every transition has a physical carrier | **PASS.** All seven, see below |
+| Full reverse scroll tested | **PASS.** Every camera mode on both viewports, scrubbed forward then back frame by frame: the state at each p is identical (4,802 frames desk, 3,602 phone, worst difference 0) |
+| Generic audit | Needs a person |
+
+**Run 25 (all 15 jobs green).** All 18 timing checks pass, the copy is fully in before it is due out on both viewports at a steady 30 vh/s scroll, and the result title and description at K18 are intact on both viewports.
+
+The seven carriers (§5.4):
+
+| Transition | Carrier beat | p | What carries it |
+|---|---|---|---|
+| Surface → Fall | tear | 0.07 | The paper tears |
+| Fall → ATLAS | veins | 0.13 | Veins ignite in the stone |
+| ATLAS → INDEX | courses | 0.22 | City courses stack up from the plateau |
+| INDEX → DEVOS | dart | 0.42 | The paper dart wakes the Core |
+| DEVOS → AMOS | glide | 0.60 | The finished fix seats into the building; rain begins |
+| AMOS → Proof | rain_stop | 0.80 | Rain stops; the repaired window lights |
+| Proof → Seal | turn | 0.90 | The turn back to the paper wall, the result read, then the return flight through the tear, which heals |
+
+Camera timing modes (the keys and path are the same in every mode; only how p maps onto the path changes):
+
+| Mode | Viewport | Peak u/s | Peak turn °/s | Speed jumps > 1.5× | Dead stops | Keys at their p | Reverse scroll |
+|---|---|---|---|---|---|---|---|
+| linear (§5.1 default) | desk | 55 | 162 | 13 | 2 | yes | PASS |
+| linear | phone | 73 | 217 | 13 | 2 | yes | PASS |
+| smooth (PROPOSED) | desk | 69 | 177 | 0 | 0 | yes | PASS |
+| smooth | phone | 93 | 236 | 0 | 0 | yes | PASS |
+| shots (PROPOSED) | desk | 157 | 327 | 2 | 0 | NO | PASS |
+| shots | phone | 210 | 436 | 2 | 0 | NO | PASS |
+
+"shots" eases each run of keys between two holds with EASE_CAMERA. It moves keys off their p, so SF frames would no longer land on their scroll position. The build does not recommend it and keeps it only for comparison.
+
+Changed at G5 (PROPOSED): new hold key **K9h** at 0.42 (the camera holds on the fold from K9 at 0.40 through the throw at 0.42); the system line, hero fade-out and closing fade-out windows; the carved line ease; the rain row uses EASE_LINEAR (§5.1 names it for rain).
+
+**G5 self-review:**
+
+| Pass | Reviewed | Fixed in | Main fixes |
+|---|---|---|---|
+| 1 | Runs 24 to 25 | run 25 | K9h hold added so the camera does not drag toward the ground during the fold; clearance regenerated (look-at gap now 2.98 desk, 3.61 phone, was 2.28) |
+| 2 | Run 25 boards and MP4s | none needed | Every check green. Visual review of the 58 boards and four MP4s found the CD items below |
+
+**For the CD (G5):**
+1. **Crack ease.** §5.3 gives the crack EASE_DEPART over 0.05 to 0.07. At K1 (0.06) that leaves the crack about 3% grown (EASE_DEPART at 0.5 of the window) where SF-01 draws a long hairline. Options: keep the §5.3 curve and accept a short crack in SF-01's moment, or open it faster (EASE_ARRIVE gives 97% at K1, a linear ramp 50%).
+2. **Camera timing: linear or smooth.** Linear is the §5.1 default and lands every key at its p, but the speed jumps up to ×4 at 13 keys and stops dead twice. Smooth (PROPOSED) removes every jump and dead stop and still lands every key at its p, at the cost of a higher peak (69 vs 55 u/s desk, 93 vs 73 phone). Compare `animatic-desk.mp4` with `animatic-desk-smooth.mp4` in the gallery. The 3-person motion test should run on the one you pick.
+3. **The K9h hold.** The camera holds 0.02 of the scroll on the fold. In the grey box the Cartographer block stands 1.65 units from the lens and fills the middle third of the frame (board K9h); the real Cartographer is a thin silhouette, so it will read lighter, but the framing is worth a look.
+
+**G5 blockers that need a person:** timing table approval against the animatic, the camera mode choice, the crack ease, the generic audit.
 
 ## Files
 

@@ -12,14 +12,14 @@ Corridor: radius 1.5 from K5 (p 0.21) to K19 (p 0.94), solid obstacles only; the
 | wall | 1.21 | 0.0860 | K2→K3 | paper wall |
 | building | 2.06 | 0.8930 | K17b→K18 | brochure plot (14, -20) h 19.3 |
 | core | 5.60 | 0.5145 | K11→K12 | Living Core |
-| cartographer | 1.65 | 0.4000 | K9→K10 | Cartographer block |
+| cartographer | 1.65 | 0.4000 | K9→K9h | Cartographer block |
 | ground | 1.50 | 0.2155 | K5→K6 | ground |
 
 Intersections: none.
 
 Corridor violations: none.
 
-Look-at gap: min 2.28 at K9→K10.
+Look-at gap: min 2.98 at K4→K4c.
 
 | Tear crossing | p | x, y | Opening | Inside | Margin to torn edge |
 |---|---|---|---|---|---|
@@ -34,14 +34,14 @@ Look-at gap: min 2.28 at K9→K10.
 | wall | 0.82 | 0.1850 | K4→K4c | paper wall |
 | building | 2.13 | 0.8500 | K17→K17b | shop plot (14, -28) h 21.3 |
 | core | 5.55 | 0.5140 | K11→K12 | Living Core |
-| cartographer | 1.65 | 0.4000 | K9→K10 | Cartographer block |
+| cartographer | 1.65 | 0.4000 | K9→K9h | Cartographer block |
 | ground | 1.50 | 0.2155 | K5→K6 | ground |
 
 Intersections: none.
 
 Corridor violations: none.
 
-Look-at gap: min 2.28 at K9→K10.
+Look-at gap: min 3.61 at K3b→K4a.
 
 | Tear crossing | p | x, y | Opening | Inside | Margin to torn edge |
 |---|---|---|---|---|---|
@@ -75,24 +75,25 @@ Printed result title: desktop "AXIEL · / Beyond Immediate Reality", phone "AXIE
 | K4→K4c | 0.80 | 20.0 | 15 | 0.0 |  |
 | K4c→K4b | 0.40 | 22.9 | 95 | 0.0 |  |
 | K4b→K5 | 0.40 | 15.0 | 37 | 0.0 |  |
-| K5→K6 | 0.80 | 4.0 | 107 | 25.0 | speed ×3.8 at the key |
-| K6→K7 | 2.80 | 4.3 | 21 | 0.0 |  |
-| K7→K8 | 2.40 | 4.5 | 35 | 0.0 |  |
-| K8→K9 | 1.60 | 6.4 | 120 | 0.0 | fast turn |
-| K9→K10 | 1.20 | 20.8 | 225 | 0.0 | fast turn, speed ×3.2 at the key |
-| K10→K11 | 2.00 | 27.3 | 38 | 0.0 | fast move |
-| K11→K12 | 2.40 | 12.7 | 89 | 0.0 |  |
+| K5→K6 | 0.80 | 4.0 | 35 | 25.0 | speed ×3.8 at the key |
+| K6→K7 | 2.80 | 4.3 | 11 | 0.0 |  |
+| K7→K8 | 2.40 | 4.5 | 22 | 0.0 |  |
+| K8→K9 | 1.60 | 6.4 | 26 | 0.0 |  |
+| K9→K9h | 0.80 | 0.0 | 0 | 0.0 | stops dead at the key |
+| K9h→K10 | 0.80 | 31.1 | 78 | 0.0 | starts dead at the key, fast move |
+| K10→K11 | 1.60 | 34.1 | 46 | 0.0 | fast move |
+| K11→K12 | 2.40 | 12.7 | 81 | 0.0 |  |
 | K12→K13 | 2.00 | 12.4 | 76 | 0.0 |  |
-| K13→K14 | 1.20 | 47.6 | 162 | 11.7 | fast turn, speed ×3.9 at the key, fast move |
+| K13→K14 | 1.20 | 47.6 | 162 | 11.7 | fast turn, speed ×3.8 at the key, fast move |
 | K14→K15 | 3.20 | 11.6 | 26 | 0.0 | speed ×4.1 at the key |
 | K15→K16 | 3.60 | 8.2 | 16 | 0.0 |  |
 | K16→K17 | 2.40 | 8.8 | 29 | 5.8 |  |
 | K17→K17b | 1.20 | 3.4 | 117 | 0.0 |  |
 | K17b→K18 | 0.80 | 12.0 | 94 | 0.0 | speed ×3.6 at the key |
 | K18→K18b | 0.80 | 12.2 | 30 | 7.5 |  |
-| K18b→K19 | 0.80 | 12.1 | 39 | 0.0 |  |
-| K19→K19b | 0.80 | 6.9 | 215 | 12.5 | fast turn |
-| K19b→K20 | 0.80 | 2.5 | 197 | 12.5 | fast turn |
+| K18b→K19 | 0.80 | 12.1 | 71 | 0.0 |  |
+| K19→K19b | 0.80 | 6.9 | 127 | 12.5 | fast turn |
+| K19b→K20 | 0.80 | 2.5 | 135 | 12.5 | fast turn |
 
 ## Pacing, phone (900vh at a PROPOSED 30 vh/s)
 
@@ -107,22 +108,23 @@ Printed result title: desktop "AXIEL · / Beyond Immediate Reality", phone "AXIE
 | K4→K4c | 0.60 | 26.7 | 13 | 0.0 | fast move |
 | K4c→K4b | 0.30 | 31.6 | 89 | 0.0 | fast move |
 | K4b→K5 | 0.30 | 19.9 | 57 | 0.0 |  |
-| K5→K6 | 0.60 | 5.3 | 142 | 33.3 | fast turn, speed ×3.8 at the key |
-| K6→K7 | 2.10 | 5.8 | 28 | 0.0 |  |
-| K7→K8 | 1.80 | 6.0 | 46 | 0.0 |  |
-| K8→K9 | 1.20 | 8.6 | 160 | 0.0 | fast turn |
-| K9→K10 | 0.90 | 27.7 | 312 | 0.0 | fast turn, speed ×3.2 at the key, fast move |
-| K10→K11 | 1.50 | 36.1 | 47 | 0.0 | fast move |
-| K11→K12 | 1.80 | 16.9 | 112 | 0.0 |  |
+| K5→K6 | 0.60 | 5.3 | 46 | 33.3 | speed ×3.8 at the key |
+| K6→K7 | 2.10 | 5.8 | 15 | 0.0 |  |
+| K7→K8 | 1.80 | 6.0 | 29 | 0.0 |  |
+| K8→K9 | 1.20 | 8.6 | 35 | 0.0 |  |
+| K9→K9h | 0.60 | 0.0 | 0 | 0.0 | stops dead at the key |
+| K9h→K10 | 0.60 | 41.5 | 136 | 0.0 | fast turn, starts dead at the key, fast move |
+| K10→K11 | 1.20 | 45.1 | 69 | 0.0 | fast move |
+| K11→K12 | 1.80 | 16.9 | 103 | 0.0 |  |
 | K12→K13 | 1.50 | 16.5 | 102 | 0.0 |  |
-| K13→K14 | 0.90 | 63.5 | 217 | 15.6 | fast turn, speed ×3.9 at the key, fast move |
+| K13→K14 | 0.90 | 63.5 | 217 | 15.6 | fast turn, speed ×3.8 at the key, fast move |
 | K14→K15 | 2.40 | 15.5 | 35 | 0.0 | speed ×4.1 at the key |
 | K15→K16 | 2.70 | 10.8 | 21 | 0.0 |  |
 | K16→K17 | 1.80 | 10.6 | 31 | 7.8 |  |
 | K17→K17b | 0.90 | 3.1 | 158 | 0.0 | fast turn, speed ×3.5 at the key |
 | K17b→K18 | 0.60 | 14.1 | 131 | 0.0 | fast turn, speed ×4.6 at the key |
 | K18→K18b | 0.60 | 17.1 | 53 | 10.0 |  |
-| K18b→K19 | 0.60 | 16.1 | 51 | 0.0 |  |
-| K19→K19b | 0.60 | 9.2 | 286 | 16.7 | fast turn |
-| K19b→K20 | 0.60 | 3.3 | 263 | 16.7 | fast turn |
+| K18b→K19 | 0.60 | 16.1 | 93 | 0.0 |  |
+| K19→K19b | 0.60 | 9.2 | 169 | 16.7 | fast turn |
+| K19b→K20 | 0.60 | 3.3 | 180 | 16.7 | fast turn |
 
