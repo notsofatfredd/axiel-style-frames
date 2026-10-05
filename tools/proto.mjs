@@ -158,11 +158,24 @@ for (const vp of VPS) {
     out.shots.push({ file: ff, p: 0.79, frozen: true, cap: `${vp.label} · p 0.79 · K16 · frozen, D4 labels on the drops` });
 
     // scrolling releases the freeze and the labels type back out (to 0.82, past the labels window, so it cannot re-freeze)
-    await page.evaluate(() => window.__axiel.toP(0.82));
-    const released = await waitFor(() => !window.__axiel.state().frozen && !window.__axiel.state().labels.length, null, 2000);
-    check('Scrolling releases the freeze and clears the labels', released, '');
-    const untyped = await waitFor(() => [...document.querySelectorAll('.drop-label')].every((e) => !e.textContent), null, 3000);
-    check('Labels type back out', untyped, '');
+    // counted in frames, not ms: a SwiftShader desktop frame (about 2 s) is longer than any wall-clock cap that would mean anything
+    const rel = await page.evaluate(() => new Promise((r) => {
+      const ax = window.__axiel, t0 = performance.now(); let n = 0, free = -1, clear = -1, gone = -1;
+      ax.toP(0.82);
+      const f = () => {
+        n++;
+        const s = ax.state();
+        if (free < 0 && !s.frozen) free = n;
+        if (clear < 0 && !s.labels.length) clear = n;
+        if (gone < 0 && [...document.querySelectorAll('.drop-label')].every((e) => !e.textContent)) gone = n;
+        if ((free > 0 && clear > 0 && gone > 0) || performance.now() - t0 > 30000) r({ free, clear, gone, n, ms: performance.now() - t0 });
+        else requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    }));
+    check('Scrolling releases the freeze and clears the labels', rel.free > 0 && rel.free <= 2 && rel.clear > 0,
+      `unfrozen at frame ${rel.free}, labels cleared at frame ${rel.clear} (${rel.n} frames, ${rel.ms.toFixed(0)} ms)`);
+    check('Labels type back out', rel.gone > 0, `text gone at frame ${rel.gone}`);
     const t3 = await amos().then((a) => a.time); await frames(3); const t4 = await amos().then((a) => a.time);
     check('Rain moves again', t4 > t3, `shader time ${t3.toFixed(3)} → ${t4.toFixed(3)} over 3 frames`);
     // no freeze outside the labels window
