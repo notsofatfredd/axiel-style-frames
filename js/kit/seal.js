@@ -12,7 +12,7 @@ import { THREE, HEX, MAT, mixc, rng, TAU, canvas, canvasTex, loadImage, tinted, 
 export const SYMBOL_SRC = 'assets/axiel-symbol-ink.png';
 
 /* ---------- wax seal ---------- */
-const RINGS_FACE = 18, RINGS_RIM = 26, SEGS = 160;   // (18 + 26) × 160 × 2 = 14 080 tris (budget 15k)
+const RINGS_FACE = 18, RINGS_RIM = 26, SEGS = 160;   // 13 920 tris for the face and rim + 160 for the flat back = 14 080 (budget 15k)
 const FACE_T = 0.70;                                  // stamped face ends at 0.70 of the edge radius
 
 function edgeFn(seed) {
@@ -54,6 +54,12 @@ function sealGeometry(R, seed) {
     if (i > 0) idx.push(a, c, b);           // ring 0 is the centre point: one triangle per segment
     idx.push(b, c, d);
   }
+  // flat back (the side pressed onto the paper): a fan on its own copy of the rim, facing −z, its uv
+  // outside the symbol field so the impression stays on the front (+SEGS tris)
+  const c0 = pos.length / 3, rim = (ts.length - 1) * row;
+  pos.push(0, 0, 0); uv.push(2, 2);
+  for (let j = 0; j <= SEGS; j++) { pos.push(pos[(rim + j) * 3], pos[(rim + j) * 3 + 1], pos[(rim + j) * 3 + 2]); uv.push(2, 2); }
+  for (let j = 0; j < SEGS; j++) idx.push(c0, c0 + 2 + j, c0 + 1 + j);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
