@@ -49,6 +49,7 @@ import { makeCity, makeGround, makeFaultBuilding } from './js/kit/city.js';
 import { makeCore } from './js/kit/livingcore.js';
 import { makeSeal } from './js/kit/seal.js';
 import { makeCartographer } from './js/kit/cartographer.js';
+import { makeDart } from './js/kit/dart.js';
 
 const out = { ok: false, rows: [], errors: [] };
 window.__objects = out;
@@ -204,8 +205,16 @@ try {
     row('Cartographer', t, 10000, 'tris', count(rig.root).calls, `${rig.hinges} hinges; turnaround + animations on cartographer.html`);
   }
 
-  // ---------- paper dart (600): in the Cartographer branch until it merges ----------
-  out.pending = ['Paper dart (600 tris): built with the Cartographer animations, counted here once that branch merges.'];
+  // ---------- paper dart (600): the map folded; shown in its three states ----------
+  {
+    const dart = makeDart({ state: 'dart' }), n = count(dart);
+    row('Paper dart', dart.userData.tris, 600, 'tris', n.calls, `${dart.userData.hinges} hinges; map → dart → gold on one mesh set`);
+    for (const st of ['map', 'dart', 'gold']) {
+      const d = makeDart({ state: st });
+      turnaround(`Paper dart · ${st}`, d, { size: [360, 270], views: [['¾', Math.PI / 4]], elev: 0.4 });
+    }
+  }
+  out.pending = [];
 
   const tb = document.querySelector('#budget tbody');
   for (const r of out.rows) {

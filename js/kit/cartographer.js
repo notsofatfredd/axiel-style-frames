@@ -4,13 +4,16 @@
  * Local frame: faces +z, feet at y = 0. Built first so its silhouette can be tested (cartographer.html).
  * A pleated paper tunic (rigid, on the pelvis, no hinge) and the open map carry the fold lines into the silhouette.
  *
- * 20 hinges: waist, neck, shoulder L/R (fixed ±6° splay), elbow L/R, wrist L/R, hip L/R, knee L/R,
- * ankle L/R (all about local x) · lantern bail (free swivel, keeps the lantern upright) ·
- * map attach (orients the map toward the reader) · 4 accordion folds (about local y).
+ * 27 hinges: waist, neck, shoulder L/R (fixed ±6° splay), elbow L/R, wrist L/R, hip L/R, knee L/R,
+ * ankle L/R (all about local x) · shoulder yaw L/R (G3) · lantern bail (free swivel, keeps the lantern upright) ·
+ * map attach (orients the map toward the reader) · 4 accordion folds (about local y) · dart hold + the dart's 4 folds (G3).
+ * G3: ANIMS (8 animations as hinge keyframes), rig.play(name, t), the paper dart (rig.dart, rig.dartWorld()).
  * Sign: +x rotation swings a hanging limb backward (−y → −z); forward flex is negative.
  */
 import { THREE, HEX, col, DEG, MAT, canvas, canvasTex, setFont } from '../core.js';
 import { plots, LAYOUT } from './city.js';
+import { makeDart } from './dart.js';
+import { EASE } from './ease.js';
 
 /* ---------- convex lofts (flat-shaded folded paper) ---------- */
 // Triangles carry their fold lines in uv: [a, b, c, k] where corner k joins the triangle's two fold edges
@@ -93,6 +96,204 @@ export const POSES = {
   idle: { shL: -5, elL: -15, shR: -30, elR: -60, fold: 172, mapTilt: -10 },
 };
 const HINGES = ['waist', 'neck', 'shL', 'shR', 'elL', 'elR', 'wrL', 'wrR', 'hipL', 'hipR', 'knL', 'knR', 'anL', 'anR'];
+// shoulder yaw (about the vertical, inward positive): lets a raised hand cross toward the midline (reading, the
+// throw's follow-through). 0 = the G2 rig exactly. PROPOSED (G3).
+const YAW = ['ywL', 'ywR'];
+
+/* ---------- animations (§3.1): hinge-angle keyframes in code ----------
+ * ANIMS[name] = { dur (s), loop?, keys: [[u 0..1, pose, ease], ...] }
+ *   One-shots: each segment eases from the previous key with the named §5.1 curve (default EASE_CAMERA), so the
+ *   motion rests on held keys and runs through DEPART -> ARRIVE pairs (the throw's release, the dart's last crease).
+ *   Loops (idle, walk, walk_away): a periodic Catmull-Rom spline through the keys at EASE_LINEAR time (ambient, §5.2).
+ * Pose fields beyond the hinges: fold (map interior angle, 180 = flat), mapTilt, mapX, raise (0..1 beam widen),
+ * dart (0 none · 0..0.15 the sheet appears · 0.15..1 folding · 1..2 gilding), dartPitch / dartYaw / dartRoll
+ * (degrees, relative to the figure), map (1 shown, 0 gone) and thrown (1 = released) are steps, not blends.
+ * plantH / plantB (hip height, back-foot toe rock): set on a planted key; between two planted keys the legs are
+ * re-solved from the blended height instead of blending angles, so the feet stay put (0 = off).
+ */
+const DEF = { fold: 170, mapTilt: -20, mapX: 0.5, raise: 0, dart: 0, dartPitch: 0, dartYaw: 0, dartRoll: 0, map: 1, thrown: 0, plantH: 0, plantB: 0 };
+const FIELDS = [...HINGES, ...YAW, ...Object.keys(DEF)];
+const STEP = new Set(['map', 'thrown']);
+const full = (p) => {
+  const o = {};
+  for (const f of FIELDS) o[f] = p[f] ?? DEF[f] ?? 0;
+  if (p.raise === undefined && p.raised !== undefined) o.raise = p.raised ? 1 : 0;
+  return o;
+};
+const STAND = POSES.idle;
+const RL = POSES.raise_lantern;
+const L_RL = { hipL: RL.hipL, knL: RL.knL, anL: RL.anL, hipR: RL.hipR, knR: RL.knR, anR: RL.anR };
+const READ_LEGS = { hipL: -8, knL: 6, anL: 2, hipR: 6, knR: 4, anR: -8 };
+// reading the opened map: held flat in front of the chest, top tilted to the folds of the head, lantern up beside it
+const READ = { ...READ_LEGS, waist: 5, neck: 20, shL: -90, elL: -45, shR: -58, elR: -50, ywR: 16, fold: 176, mapTilt: -34, mapX: 0.5, raise: 0.4 };
+// holding the folded dart up at head height, nose forward, weight over the back foot (throw stance, left foot leads)
+const READY = { hipL: -14, knL: 8, anL: 6, hipR: 10, knR: 6, anR: -16, waist: 2, neck: 2, shL: -30, elL: -25, shR: -70, elR: -100, ywR: 8, dart: 1, dartPitch: 22 }; // legs re-solved below (plant)
+const EMPTY = { shL: -5, elL: -15, shR: -6, elR: -14, map: 0 }; // after the throw the right hand is empty
+
+/* walk (1.2 s): the leg keys are solved, not hand-set (G3 review: hand keys floated the lead foot 10 cm at contact).
+   Each foot follows a ground path in the figure's frame (the ground slides back at WALK.speed): heel strike toe-up
+   -> rock onto the flat foot about the heel -> flat, carried back -> rock onto the toes about the toe -> swing
+   (Hermite, a small lift) back to the next heel strike. The hip height is the highest the stance legs reach,
+   then two-bone IK turns each ankle target into hip / knee / ankle angles. 24 keys, right leg half a cycle behind.
+   Lantern arm swings against the legs; the map arm barely swings (it is reading). PROPOSED: the gait numbers. */
+export const WALK = { dur: 1.2, step: 0.6 };
+WALK.speed = 2 * WALK.step / WALK.dur; // m/s: two steps a cycle
+const LEG = { a: 0.44, b: 0.45, hipY: 0.96, ankle: 0.07, heel: [-0.07, -0.03], toe: [-0.07, 0.19] }; // [y, z] from the ankle
+const GAIT = { strike: -14, toeOff: 35, rockIn: 0.1, flatEnd: 0.42, stance: 0.6, lift: 0.045, reach: 0.88, hipMax: 0.93 };
+// ankle [z, y] when the foot (at foot angle b, + = toe down) pivots on the contact point c = [z, y] at offset o
+const pivot = (c, o, b) => { const s = Math.sin(b * DEG), k = Math.cos(b * DEG); return [c[0] - (o[0] * s + o[1] * k), c[1] - (o[0] * k - o[1] * s)]; };
+const herm = (p0, p1, m0, m1, s) => { const s2 = s * s, s3 = s2 * s; return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * m0 + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * m1; };
+function footAt(ph, z0) { // ph 0..1 of this leg's cycle, z0 = heel z at strike -> { z, y, b } (ankle, foot angle)
+  const T = WALK.dur, v = WALK.speed, G = GAIT;
+  const gz = (q) => z0 - v * T * q; // where a ground point touched at phase 0 has slid to by phase q
+  const stance = (q) => {
+    if (q <= G.rockIn) { const b = G.strike * (1 - q / G.rockIn); const [z, y] = pivot([gz(q), 0], LEG.heel, b); return { z, y, b }; }
+    const flat0 = pivot([gz(G.rockIn), 0], LEG.heel, 0); // ankle over the flat foot
+    if (q <= G.flatEnd) return { z: flat0[0] - v * T * (q - G.rockIn), y: flat0[1], b: 0 };
+    const toeZ = flat0[0] - v * T * (G.flatEnd - G.rockIn) + LEG.toe[1]; // the toe, planted at flatEnd
+    const b = G.toeOff * (q - G.flatEnd) / (G.stance - G.flatEnd);
+    const [z, y] = pivot([toeZ - v * T * (q - G.flatEnd), 0], LEG.toe, b);
+    return { z, y, b };
+  };
+  if (ph <= G.stance) return stance(ph);
+  const A = stance(G.stance), B = stance(0), h = 1e-4, sw = 1 - G.stance;
+  const dA = stance(G.stance - h), dB = stance(h); // end tangents (per unit phase), scaled to the swing's length
+  const s = (ph - G.stance) / sw;
+  const m = (k) => [(A[k] - dA[k]) / h * sw, (dB[k] - B[k]) / h * sw];
+  const [mz0, mz1] = m('z'), [my0, my1] = m('y');
+  return {
+    z: herm(A.z, B.z, mz0, mz1, s),
+    y: herm(A.y, B.y, my0, my1, s) + G.lift * Math.sin(Math.PI * s),
+    b: A.b + (B.b - A.b) * (1 - (1 - s) * (1 - s)),
+  };
+}
+function legIK(f, H) { // ankle target relative to the hip (hip at z 0, height H) -> [hip, knee, ankle] degrees
+  const { a, b } = LEG, dz = f.z, dy = f.y - H;
+  const d = Math.min(a + b - 1e-4, Math.hypot(dz, dy));
+  const ph = Math.atan2(-dz, -dy);
+  const al = Math.acos((a * a + d * d - b * b) / (2 * a * d));
+  const kn = Math.PI - Math.acos((a * a + b * b - d * d) / (2 * a * b));
+  const hip = (ph - al) / DEG, knee = kn / DEG;
+  return [hip, knee, f.b - hip - knee];
+}
+// heel z at strike, so the stance ankle path is centred a little ahead of the hip (PROPOSED 0.03)
+const Z0 = (() => { const a = footAt(0, 0).z, b = footAt(GAIT.stance, 0).z; return 0.03 - (a + b) / 2; })();
+// planted stances (the throw, READY): both ankles solved for a given hip height so the feet stay flat on the ground
+// (G3 review: hand-set throw legs lifted the front foot 3 to 4 cm). bR > 0 rocks the back foot onto its toes.
+const PLANT = { zL: 0.16, zR: -0.2 }; // front (left) and back (right) ankle z: the throw stance, left foot leads
+function plant(H, bR = 0, zL = PLANT.zL, zR = PLANT.zR) {
+  const fL = { z: zL, y: LEG.ankle, b: 0 };
+  const [z, y] = bR ? pivot([zR + LEG.toe[1], 0], LEG.toe, bR) : [zR, LEG.ankle];
+  const [hipL, knL, anL] = legIK(fL, H), [hipR, knR, anR] = legIK({ z, y, b: bR }, H);
+  return { hipL, knL, anL, hipR, knR, anR, plantH: H, plantB: bR };
+}
+Object.assign(READY, plant(0.905));
+function walkKeys(over = {}) {
+  const N = 24, keys = [];
+  for (let i = 0; i < N; i++) {
+    const u = i / N, c = Math.cos(2 * Math.PI * u), c2 = Math.cos(4 * Math.PI * u);
+    const fL = footAt(u, Z0), fR = footAt((u + 0.5) % 1, Z0);
+    let H = GAIT.hipMax;
+    for (const f of [fL, fR]) H = Math.min(H, f.y + Math.sqrt(Math.max(0, GAIT.reach ** 2 - f.z ** 2)));
+    const [hipL, knL, anL] = legIK(fL, H), [hipR, knR, anR] = legIK(fR, H);
+    const p = {
+      hipL, knL, anL, hipR, knR, anR,
+      shL: -17 + 9 * c, elL: -22 - 2 * c, shR: -45 - 4 * c, elR: -55,
+      waist: 3 + 1.2 * c2, neck: 6 - 1.2 * c2, fold: 153 - 3 * c2, mapTilt: -35, mapX: 0.25,
+    };
+    keys.push([u, { ...p, ...(typeof over === 'function' ? over(i, p, u) : over) }]);
+  }
+  return keys;
+}
+const RAW = {
+  // breathing: the paper settles and lifts (4 s loop: PROPOSED, §3.1 gives no idle length)
+  idle: { dur: 4.0, loop: true, keys: [
+    [0, STAND],
+    [0.5, { ...STAND, waist: 1.5, neck: -2, shL: -7, elL: -17, shR: -31, elR: -61, hipL: -1, knL: 2, anL: -1, hipR: -1, knR: 2, anR: -1, fold: 166, mapTilt: -12 }],
+  ] },
+  walk: { dur: 1.2, loop: true, keys: walkKeys() },
+  // anticipation (lantern drawn in, knees dip) -> overshoot high -> settle on the SF-04 pose; the beam widens on the way up
+  raise_lantern: { dur: 1.0, keys: [
+    [0, STAND],
+    [0.28, { hipL: -6, knL: 10, anL: -4, hipR: -6, knR: 10, anR: -4, waist: 8, neck: 5, shL: -38, elL: -72, shR: -30, elR: -56, fold: 146, mapTilt: -22, mapX: 0.32, raise: 0 }],
+    [0.72, { ...L_RL, waist: 2, neck: -11, shL: -160, elL: -4, shR: -30, elR: -50, fold: 118, mapTilt: -30, mapX: 0.15, raise: 1 }],
+    [1, RL],
+  ] },
+  // gather the map (folds close a little), then flick it open flat and lift it to read; the lantern comes down beside it
+  unfurl_map: { dur: 1.2, keys: [
+    [0, RL],
+    [0.25, { ...L_RL, waist: 4, neck: 4, shL: -118, elL: -12, shR: -40, elR: -72, fold: 92, mapTilt: -18, mapX: 0.3, raise: 0.8 }],
+    [0.6, { ...READ_LEGS, waist: 6, neck: 16, shL: -92, elL: -40, shR: -62, elR: -48, ywR: 18, fold: 180, mapTilt: -38, mapX: 0.5, raise: 0.5 }],
+    [1, READ],
+  ] },
+  // the map closes into a stack (the last fold snaps shut), becomes the sheet, the sheet folds into the dart
+  // (in half, then the wings), and the dart is lifted to head height (last segment EASE_ARRIVE, §5.3; PROPOSED reading
+  // of the table's 1.4 s EASE_ARRIVE: the arrival is the dart reaching the hand-up hold)
+  fold_dart: { dur: 1.4, keys: [
+    [0, READ],
+    [0.28, { ...READ_LEGS, waist: 6, neck: 22, shL: -100, elL: -45, shR: -52, elR: -74, ywR: 22, fold: 24, mapTilt: -8, mapX: 0.5, raise: 0.3, dartPitch: 75, dartRoll: 180 }],
+    [0.36, { ...READ_LEGS, waist: 6, neck: 22, shL: -100, elL: -45, shR: -52, elR: -74, ywR: 22, fold: 0, mapTilt: -8, mapX: 0.5, raise: 0.3, dartPitch: 75, dartRoll: 180 }, 'LINEAR'],
+    [0.42, { ...READ_LEGS, waist: 6, neck: 22, shL: -100, elL: -45, shR: -52, elR: -74, ywR: 22, fold: 0, mapTilt: -8, mapX: 0.5, raise: 0.3, dart: 0.15, dartPitch: 75, dartRoll: 180 }, 'LINEAR'],
+    [0.8, { ...READ_LEGS, waist: 5, neck: 20, shL: -80, elL: -40, shR: -62, elR: -84, ywR: 18, fold: 0, raise: 0.2, dart: 1, dartPitch: 60, dartRoll: 180 }],
+    [1, READY, 'ARRIVE'],
+  ] },
+  // cock behind the head with the weight back (anticipation) -> whip forward, release at full speed (DEPART) ->
+  // follow through across the body onto the front foot (ARRIVE) -> settle
+  throw_dart: { dur: 1.0, release: 0.46, keys: [
+    [0, READY],
+    [0.32, { ...plant(0.885), waist: -8, neck: -6, shL: -70, elL: -15, ywL: 8, shR: -150, elR: -112, ywR: -6, dart: 1, dartPitch: 18 }],
+    [0.46, { ...plant(0.895), waist: 8, neck: 0, shL: -25, elL: -20, ywL: 4, shR: -105, elR: -30, ywR: 8, dart: 1, dartPitch: 4, thrown: 1 }, 'DEPART'],
+    [0.72, { ...plant(0.875, 30), waist: 16, neck: 8, shL: 10, elL: -18, shR: -40, elR: -14, ywR: 30, dart: 1, thrown: 1 }, 'ARRIVE'],
+    [1, { ...plant(0.91), waist: 5, neck: 2, shL: -6, elL: -15, shR: -22, elR: -22, ywR: 10, dart: 1, thrown: 1 }],
+  ] },
+  // one clear dip of the diamond head with a small rebound (the right hand is empty after the throw)
+  nod: { dur: 0.8, keys: [
+    [0, EMPTY],
+    [0.35, { ...EMPTY, neck: 34, waist: 7, shL: -9, shR: -10, hipL: -4, knL: 8, anL: -4, hipR: -4, knR: 8, anR: -4 }],
+    [0.65, { ...EMPTY, neck: -5, waist: -1 }],
+    [1, EMPTY],
+  ] },
+  // reuses the walk legs; map gone, so the right arm swings free against the right leg. PROPOSED.
+  walk_away: { dur: 1.2, loop: true, keys: walkKeys((i, p, u) => ({ map: 0, shR: -17 - 9 * Math.cos(2 * Math.PI * u), elR: -22 + 2 * Math.cos(2 * Math.PI * u) })) },
+};
+export const ANIMS = {};
+for (const [name, a] of Object.entries(RAW)) ANIMS[name] = { ...a, keys: a.keys.map(([u, p, e]) => [u, full(p), e ?? (a.loop ? 'LINEAR' : 'CAMERA')]) };
+
+/* evaluate an animation at t seconds -> a full pose object (pass it to rig.pose, or blend two of them) */
+export function evalAnim(name, t) {
+  const A = ANIMS[name];
+  if (!A) throw new Error('unknown animation ' + name);
+  const K = A.keys, n = K.length;
+  let u = t / A.dur;
+  u = A.loop ? u - Math.floor(u) : Math.min(1, Math.max(0, u));
+  const out = {};
+  if (A.loop) {
+    // periodic Catmull-Rom (keys evenly spaced over the cycle)
+    let i = 0;
+    while (i < n - 1 && u >= K[i + 1][0]) i++;
+    const t0 = K[i][0], t1 = i + 1 < n ? K[i + 1][0] : 1;
+    const s = (u - t0) / (t1 - t0);
+    const P0 = K[(i - 1 + n) % n][1], P1 = K[i][1], P2 = K[(i + 1) % n][1], P3 = K[(i + 2) % n][1];
+    for (const f of FIELDS) {
+      if (STEP.has(f)) { out[f] = P1[f]; continue; }
+      const a = P0[f], b = P1[f], c = P2[f], d = P3[f];
+      out[f] = 0.5 * (2 * b + (c - a) * s + (2 * a - 5 * b + 4 * c - d) * s * s + (3 * b - a - 3 * c + d) * s * s * s);
+    }
+  } else {
+    let i = 0;
+    while (i < n - 2 && u > K[i + 1][0]) i++;
+    const [t0, P] = K[i], [t1, Q, e] = K[i + 1];
+    const s = t1 > t0 ? (u - t0) / (t1 - t0) : 1;
+    const k = EASE[e](s);
+    for (const f of FIELDS) out[f] = STEP.has(f) ? (u >= t1 ? Q[f] : P[f]) : P[f] + (Q[f] - P[f]) * k;
+    if (P.plantH > 0 && Q.plantH > 0) Object.assign(out, plant(out.plantH, out.plantB));
+  }
+  out.fold = Math.min(180, Math.max(0, out.fold));
+  out.dart = Math.max(0, out.dart);
+  out.raise = Math.min(1, Math.max(0, out.raise));
+  out.raised = out.raise > 0.5;
+  return out;
+}
 
 /* ---------- the map (city plan in stone ink, two red findings: PROPOSED M2) ---------- */
 const PW = 0.16, PH = 0.5, PANELS = 5; // 0.8 × 0.5 open: big enough to share the silhouette with the body (§3.1)
@@ -131,6 +332,9 @@ export function mapCanvas(o = {}) {
   x.fillText('No share preview', tx, ty - 0.02 * S);
   x.fillText('No business details', tx, ty + 0.018 * S);
   x.restore();
+  // world -> map pixel and the scale, so the dart (dart.js) can cut its sheet from the same print
+  c.px = (wx, wz) => [mx(wx), my(wz)];
+  c.sc = sc;
   return c;
 }
 
@@ -183,6 +387,9 @@ function beamMesh() {
  *   rig.pose(name|obj)  applies a pose, grounds the feet, re-hangs the lantern and re-orients the map
  *   rig.aim(v3, o)      points the lantern spot + beam at a world point (call after the rig is placed)
  *   rig.spot / rig.light / rig.beam
+ *   rig.play(name, t)   applies ANIMS[name] at t seconds (G3)
+ *   rig.dart            the paper dart (dart.js) in the right hand; rig.dartWorld() its world transform,
+ *                       rig.dartRelease() the transform + velocity at the throw's release (G3)
  */
 export async function makeCartographer(o = {}) {
   const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
@@ -212,6 +419,7 @@ export async function makeCartographer(o = {}) {
   // arms (shoulders at world y ≈ 1.44, ±6° fixed splay)
   for (const [s, k] of [[1, 'L'], [-1, 'R']]) {
     const sh = joint(waist, 'sh' + k, [s * 0.175, 0.42, -0.005], s * 6 * DEG);
+    J['yw' + k] = sh.parent; // the splay group carries the shoulder yaw (rotation.y; 0 = the G2 rig)
     add(sh, limb(0.3, [0.085, 0.05, 0.05], [0.06, 0.04, 0.04]));
     const el = joint(sh, 'el' + k, [0, -0.3, 0]);
     add(el, limb(0.28, [0.06, 0.04, 0.04], [0.045, 0.03, 0.03]));
@@ -252,7 +460,7 @@ export async function makeCartographer(o = {}) {
   const back = MAT.paper({ k: 'bone', bump: 0.002, side: THREE.FrontSide });
   const attach = joint(J.handR, 'mapAttach', [0, 0, 0]);
   const mapOff = new THREE.Group(); attach.add(mapOff);
-  const folds = [];
+  const folds = [], mapMeshes = [];
   let parent = mapOff;
   for (let i = 0; i < PANELS; i++) {
     const f = joint(parent, i ? 'fold' + i : null, [i ? PW : 0, 0, 0]);
@@ -260,28 +468,47 @@ export async function makeCartographer(o = {}) {
     const pg = new THREE.PlaneGeometry(PW, PH).translate(PW / 2, -PH * 0.62, 0);
     const uv = pg.attributes.uv;
     for (let k = 0; k < uv.count; k++) uv.setX(k, (i + uv.getX(k)) / PANELS);
-    add(f, pg, front);
-    add(f, pg.clone().rotateY(Math.PI).translate(PW, 0, 0), back);
+    mapMeshes.push(add(f, pg, front));
+    mapMeshes.push(add(f, pg.clone().rotateY(Math.PI).translate(PW, 0, 0), back));
     parent = f;
   }
 
+  // the paper dart (dart.js) pinched in the right hand: dartHold keeps it in the figure's frame (pitch / yaw / roll
+  // from the pose), the hand pinches the keel a little ahead of mid-length. Hidden until fold_dart makes it.
+  const dartHold = joint(J.handR, 'dartHold', [0, 0, 0]);
+  const dart = makeDart({ map: mapC, state: 'map' });
+  dart.position.set(0, -0.012, -0.02);
+  dartHold.add(dart);
+  for (const m of dart.userData.meshes) m.visible = false;
+
   const q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), e = new THREE.Euler();
   const box = new THREE.Box3();
-  let cur = null;
-  function pose(p) {
+  let cur = null, curOpt = {};
+  // pose(name | obj, { precise }) : precise grounds on the feet's vertices (used by play); the default keeps the
+  // G2 bounding-box grounding so SF-04 renders exactly as before
+  function pose(p, opt = {}) {
     const P = typeof p === 'string' ? POSES[p] : p;
-    cur = P;
+    cur = P; curOpt = opt;
     for (const h of HINGES) J[h].rotation.x = (P[h] ?? 0) * DEG;
+    J.ywL.rotation.y = -(P.ywL ?? 0) * DEG;
+    J.ywR.rotation.y = (P.ywR ?? 0) * DEG;
     body.position.y = 0;
     // map folds: accordion, alternate valley / mountain; P.fold = interior angle between panels (180 = flat)
     const a = (180 - (P.fold ?? 170)) * DEG;
     folds.forEach((f, i) => { f.rotation.y = (i % 2 ? -a : a); });
     mapOff.rotation.y = -a / 2; // panels sit at ±a/2, a symmetric zig-zag about the attach direction
     mapOff.position.x = -PW * PANELS * Math.cos(a / 2) * (P.mapX ?? 0.5);
+    // map -> sheet -> dart: the map shows until the dart exists; the dart until it is thrown
+    const dv = Math.max(0, P.dart ?? 0), thrown = (P.thrown ?? 0) > 0.5;
+    const showMap = (P.map ?? 1) > 0.5 && dv <= 0, showDart = dv > 0 && !thrown;
+    for (const m of mapMeshes) m.visible = showMap;
+    for (const m of dart.userData.meshes) m.visible = showDart;
+    dart.scale.setScalar(dv < 0.15 ? 0.5 + 0.5 * dv / 0.15 : 1); // the closed map stack opens out to the sheet
+    dart.userData.setState(dv <= 0.15 ? 0 : dv <= 1 ? (dv - 0.15) / 0.85 : Math.min(2, dv));
     root.updateMatrixWorld(true);
     // ground the lowest foot
     let minY = Infinity;
-    for (const k of ['L', 'R']) { box.setFromObject(J['foot' + k]); minY = Math.min(minY, box.min.y); }
+    for (const k of ['L', 'R']) { box.setFromObject(J['foot' + k], !!opt.precise); minY = Math.min(minY, box.min.y); }
     body.position.y = root.position.y - minY;
     root.updateMatrixWorld(true);
     // bail swivel: the lantern hangs plumb whatever the arm does
@@ -292,32 +519,67 @@ export async function makeCartographer(o = {}) {
     attach.parent.getWorldQuaternion(q2);
     const want = q.clone().multiply(new THREE.Quaternion().setFromEuler(e.set((P.mapTilt ?? -20) * DEG, Math.PI, 0, 'YXZ')));
     attach.quaternion.copy(q2.invert().multiply(want));
+    // dart: nose along the figure's facing, pitched up by dartPitch (printed face toward the figure), yawed, rolled
+    dartHold.parent.getWorldQuaternion(q2);
+    const wd = q.clone().multiply(new THREE.Quaternion().setFromEuler(e.set(-(P.dartPitch ?? 0) * DEG, (P.dartYaw ?? 0) * DEG, (P.dartRoll ?? 0) * DEG, 'YXZ')));
+    dartHold.quaternion.copy(q2.invert().multiply(wd));
     root.updateMatrixWorld(true);
     return rig;
   }
+  // play(name, tSeconds): evaluate an animation (ANIMS) and apply it. Loops wrap; one-shots clamp to their ends.
+  function play(name, t) { return pose(evalAnim(name, t), { precise: true }); }
   const _w = new THREE.Vector3();
   function lanternWorld(v = new THREE.Vector3()) { return lan.g.localToWorld(v.copy(lan.g.userData.centre)); }
+  // the dart's world transform (where a scene takes it over at release): position, quaternion, nose direction, matrix
+  function dartWorld() {
+    root.updateMatrixWorld(true);
+    const position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3();
+    const matrix = dart.matrixWorld.clone();
+    matrix.decompose(position, quaternion, scale);
+    return { position, quaternion, dir: V(0, 0, 1).applyQuaternion(quaternion), matrix };
+  }
+  // the release: dartWorld() at ANIMS.throw_dart.release plus a launch velocity (m/s): the dart's average velocity
+  // over the forward stroke, from the cocked key to the release. PROPOSED: the instantaneous hand speed at the
+  // DEPART -> ARRIVE join peaks near 31 m/s (an easing artifact), the stroke average reads as a throw.
+  // The current pose is restored afterwards.
+  function dartRelease() {
+    const prev = cur, prevOpt = curOpt, A = ANIMS.throw_dart, tr = A.release * A.dur;
+    const ki = A.keys.findIndex(k => Math.abs(k[0] - A.release) < 1e-6), tc = A.keys[ki - 1][0] * A.dur;
+    play('throw_dart', tc); const p0 = dartWorld().position;
+    play('throw_dart', tr); const w = dartWorld();
+    w.velocity = w.position.clone().sub(p0).divideScalar(tr - tc);
+    w.t = tr;
+    if (prev) pose(prev, prevOpt);
+    return w;
+  }
   // aim the spot + beam (spot and beam live in world space so the frame can add them to its scene)
   function aim(target, a = {}) {
     root.updateMatrixWorld(true);
     const p = lanternWorld(_w);
-    const raised = a.raised ?? cur?.raised;
+    // raise 0..1 blends the two G2 states (o.raised forces one); the ends are exact so SF-04 is unchanged
+    const k = a.raised !== undefined ? (a.raised ? 1 : 0) : (cur?.raise ?? (cur?.raised ? 1 : 0));
+    const lerp = (x0, x1) => (k <= 0 ? x0 : k >= 1 ? x1 : x0 + (x1 - x0) * k);
     spot.position.copy(p);
     spot.target.position.copy(target);
     // §3.1: raise_lantern widens the beam 18° → 42° at ×2.2 intensity (read as the full cone; spot.angle is the half-angle)
-    spot.intensity = a.intensity ?? (raised ? 275 : 125);
-    spot.angle = (raised ? 21 : 9) * DEG;
+    spot.intensity = a.intensity ?? lerp(125, 275);
+    spot.angle = lerp(9, 21) * DEG;
     const d = target.clone().sub(p), L = d.length() * (a.reach ?? 1.05), t = Math.tan(spot.angle);
     beam.position.copy(p);
     beam.scale.set(t * L, L, t * L);
     beam.quaternion.setFromUnitVectors(V(0, -1, 0), d.normalize());
-    beam.material.uniforms.uS.value = a.beam ?? (raised ? 0.06 : 0.035);
-    light.intensity = a.lanternI ?? (raised ? 6 : 4);
+    beam.material.uniforms.uS.value = a.beam ?? lerp(0.035, 0.06);
+    light.intensity = a.lanternI ?? lerp(4, 6);
     return rig;
   }
   function tris() { let t = 0; root.traverse(m => { if (m.isMesh) t += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return t; }
 
-  const rig = { root, J, pose, aim, spot, light, beam, lantern: lan, lanternWorld, paper, mapCanvas: mapC, tris, hinges: HINGES.length + 1 + 1 + folds.length };
+  // hinges: 14 body + 2 shoulder yaw + bail + map attach + 4 map folds + dart hold + 4 dart folds = 27 (§3.1: ≤ 30)
+  const rig = {
+    root, J, pose, play, aim, spot, light, beam, lantern: lan, lanternWorld, paper, mapCanvas: mapC, tris,
+    dart, dartWorld, dartRelease, anims: Object.keys(ANIMS),
+    hinges: HINGES.length + YAW.length + 1 + 1 + folds.length + 1 + dart.userData.hinges,
+  };
   pose(o.pose ?? 'idle');
   return rig;
 }

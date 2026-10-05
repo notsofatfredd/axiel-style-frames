@@ -12,13 +12,23 @@
   h1 { margin: 0 0 4px; font-weight: 300; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; }
   h1 b { color: var(--gold); font-weight: 500; }
   h2 { font: 500 11px "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--stone); margin: 28px 0 8px; }
+  h3 { font: 400 11px "JetBrains Mono", monospace; color: var(--bone); margin: 14px 0 6px; }
   p { margin: 0; max-width: 820px; color: var(--paper); }
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px; margin-bottom: 8px; }
+  .six { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
+  @media (max-width: 760px) { .six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 8px; }
   figure { margin: 0; } canvas { width: 100%; height: auto; display: block; background: var(--paper); }
   figcaption { font: 400 11px "JetBrains Mono", monospace; color: var(--stone); margin-top: 4px; }
   pre { font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--bone); background: var(--graphite); padding: 12px; overflow-x: auto; white-space: pre-wrap; }
   .err { color: var(--red); }
+  .live { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 12px; align-items: start; }
+  @media (max-width: 760px) { .live { grid-template-columns: minmax(0, 1fr); } }
+  .live canvas { background: var(--ink); }
+  .ctl { display: grid; gap: 8px; font: 400 12px "JetBrains Mono", monospace; color: var(--bone); }
+  .ctl select, .ctl input[type=range] { font: inherit; background: var(--graphite); color: var(--bone); border: 1px solid var(--stone); max-width: 100%; }
+  .ctl input[type=range] { width: min(100%, 320px); vertical-align: middle; }
+  .ctl pre { margin: 0; max-height: 420px; overflow: auto; font-size: 11px; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -28,8 +38,18 @@
 </script>
 </head>
 <body>
-<h1><b>AXIEL</b> · G2-6 · Cartographer silhouette test</h1>
-<p>Flat black on paper. The figure must read as a person carrying a lantern and a map at the K7 and K8 framings, at production size, before any lighting or material helps it (protocol §3.3, G2-6).</p>
+<h1><b>AXIEL</b> · G2-6 · G3 · Cartographer silhouette and animation test</h1>
+<p>Flat black on paper. The figure must read as a person carrying a lantern and a map at the K7 and K8 framings, at production size, before any lighting or material helps it (protocol §3.3, G2-6). G3: the eight animations of §3.1 as hinge keyframes in code, and the paper dart folded from the map (§3.2).</p>
+<h2>Live player · ANIMS in code (rAF; not part of the render test)</h2>
+<div class="live">
+  <canvas id="liveC" width="480" height="640"></canvas>
+  <div class="ctl">
+    <label>animation <select id="liveA"></select></label>
+    <label>t <input id="liveT" type="range" min="0" max="1" step="0.001" value="0"> <span id="liveTv">0.00s</span></label>
+    <label><input id="liveP" type="checkbox" checked> play</label>
+    <pre id="liveCode">Loading…</pre>
+  </div>
+</div>
 <h2>At camera keys (16:9, figure size as it lands in the frame)</h2>
 <div class="wide" id="keys"></div>
 <h2>Turnaround · flat black · front · side · back · three-quarter</h2>
@@ -38,11 +58,18 @@
 <div class="row" id="lit"></div>
 <h2>The map it carries (city plan, findings in signal-red: PROPOSED M2)</h2>
 <div class="wide" id="map"></div>
+<h2>Animations · lit, three-quarter · 6 frames each at t = 0, 0.2 ... 1.0 of the duration</h2>
+<div id="anims"></div>
+<h2>Animations · flat black at the camera keys (walk at K7, raise_lantern at K8, cropped to the figure)</h2>
+<div id="sil"></div>
+<h2>The paper dart · map, folding, dart, gilding, gold</h2>
+<div class="six" id="dart"></div>
 <h2>Numbers</h2>
 <pre id="stats">Rendering…</pre>
 <script type="module">
 import { THREE, col, makeCamera } from './js/core.js';
-import { makeCartographer, POSES } from './js/kit/cartographer.js';
+import { makeCartographer, POSES, ANIMS, evalAnim, WALK } from './js/kit/cartographer.js';
+import { makeDart } from './js/kit/dart.js';
 const out = { ok: false, errors: [] };
 window.__carto = out;
 try {
@@ -76,16 +103,19 @@ try {
   };
   const stats = {};
   const keys = document.getElementById('keys');
+  const K7 = { at: [0.88, 0, -24.1], rot: Math.PI, cam: () => makeCamera(54, [1, 1.6, -20], [0, 1.2, -27]) };
+  const K8 = { at: [1.8, 0, -34.6], rot: Math.atan2(4 - 1.8, -39 + 34.6), cam: () => makeCamera(54, [-6, 2.4, -28], [6, 6, -44]) };
   // K7: walking the main street, seen from behind
   {
     const rig = await makeCartographer({ pose: 'walk' });
-    rig.root.position.set(0.88, 0, -24.1); rig.root.rotation.y = Math.PI; rig.pose('walk');
+    rig.root.position.set(...K7.at); rig.root.rotation.y = K7.rot; rig.pose('walk');
     const s = flat(); s.add(rig.root);
-    const cam = makeCamera(54, [1, 1.6, -20], [0, 1.2, -27]);
+    const cam = K7.cam();
     cam.aspect = 16 / 9; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); s.updateMatrixWorld(true);
     stats.K7 = projH(rig, cam, 810);
     shot(s, cam, 1280, 720, keys, `K7 · walk · figure ≈ ${stats.K7.h}px tall at 1440×810`);
-    stats.tris = rig.tris(); stats.hinges = rig.hinges;
+    stats.tris = rig.tris(); stats.hinges = rig.hinges; stats.anims = Object.keys(ANIMS);
+    stats.dartTris = rig.dart.userData.tris;
     const mc = document.createElement('canvas'); mc.width = rig.mapCanvas.width; mc.height = rig.mapCanvas.height;
     mc.getContext('2d').drawImage(rig.mapCanvas, 0, 0);
     fig(document.getElementById('map'), mc, 'map texture · 5 panels, accordion folds between them');
@@ -93,9 +123,9 @@ try {
   // K8: raising the lantern toward the fault building (placement PROPOSED)
   {
     const rig = await makeCartographer({ pose: 'raise_lantern' });
-    rig.root.position.set(1.8, 0, -34.6); rig.root.rotation.y = Math.atan2(4 - 1.8, -39 + 34.6); rig.pose('raise_lantern');
+    rig.root.position.set(...K8.at); rig.root.rotation.y = K8.rot; rig.pose('raise_lantern');
     const s = flat(); s.add(rig.root);
-    const cam = makeCamera(54, [-6, 2.4, -28], [6, 6, -44]);
+    const cam = K8.cam();
     cam.aspect = 16 / 9; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); s.updateMatrixWorld(true);
     stats.K8 = projH(rig, cam, 810);
     shot(s, cam, 1280, 720, keys, `K8 · raise_lantern · figure ≈ ${stats.K8.h}px tall at 1440×810`);
@@ -126,10 +156,197 @@ try {
       shot(s, cam, 360, 480, lit, `raise_lantern · ${name} · lit`);
     }
   }
+
+  /* ---------------- G3: animations ---------------- */
+  R.shadowMap.enabled = true;
+  R.shadowMap.type = THREE.PCFSoftShadowMap;
+  // the lit stage: dark ground with a stone ruler either side of the walk line (ticks every 0.1 m, longer every
+  // 0.5 m) so grounding and foot slide can be read; one key light with shadows, a dim fill. No spot: the beam
+  // mesh shows the raise.
+  const stage = (rig) => {
+    const s = new THREE.Scene(); s.background = col('ink');
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: col('graphite').lerp(col('stone'), 0.35), roughness: 1 }));
+    floor.receiveShadow = true; s.add(floor);
+    const tickM = new THREE.MeshBasicMaterial({ color: col('stone') });
+    for (let i = -30; i <= 30; i++) {
+      const w = i % 5 === 0 ? 0.3 : 0.14;
+      for (const sx of [-1, 1]) {
+        const t = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.008).rotateX(-Math.PI / 2), tickM);
+        t.position.set(sx * (0.5 + w / 2), 0.002, i * 0.1); s.add(t);
+      }
+    }
+    s.add(new THREE.HemisphereLight(col('bone'), col('ink'), 0.55));
+    const k = new THREE.DirectionalLight(col('bone'), Math.PI * 0.95);
+    k.position.set(-2.5, 5, 4.5); k.castShadow = true; k.shadow.mapSize.set(1024, 1024);
+    Object.assign(k.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 20 });
+    k.shadow.bias = -0.0005; k.shadow.normalBias = 0.02;
+    s.add(k, k.target);
+    s.add(rig.root, rig.beam);
+    return s;
+  };
+  // walk check: the figure travels at WALK.speed; the left foot's heel and toe (points on its sole) are tracked over
+  // the stance (t 0 to 0.72 s: heel strike, flat, toe-off). While a point is on the ground (y < 5 mm) its world z,
+  // with the travel added back, should not move: slip = the largest drift of either point while it is down.
+  // lift = the highest the lower of the two points gets while the foot is flat (t 0.12 to 0.5 s).
+  const HEEL = new THREE.Vector3(0, -0.07, -0.03), TOE = new THREE.Vector3(0, -0.07, 0.19), pt = new THREE.Vector3();
+  const measure = (rig) => {
+    rig.root.position.set(0, 0, 0); rig.root.rotation.y = 0;
+    const T = ANIMS.walk.dur, v = WALK.speed, N = 72;
+    const span = { heel: [Infinity, -Infinity], toe: [Infinity, -Infinity] };
+    let lift = 0;
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * T * 0.6;
+      rig.play('walk', t);
+      const ys = [];
+      for (const [k, P] of [['heel', HEEL], ['toe', TOE]]) {
+        rig.J.anL.localToWorld(pt.copy(P)); ys.push(pt.y);
+        if (pt.y < 0.005) { const z = pt.z + v * t; span[k][0] = Math.min(span[k][0], z); span[k][1] = Math.max(span[k][1], z); }
+      }
+      if (t > 0.12 && t < 0.5) lift = Math.max(lift, Math.min(...ys));
+    }
+    const slip = Math.max(...Object.values(span).map(([lo, hi]) => (hi > lo ? hi - lo : 0)));
+    return { v, slip, lift };
+  };
+  const arig = await makeCartographer({ pose: 'idle' });
+  const W = measure(arig);
+  stats.walkSpeed = +W.v.toFixed(3); stats.walkSlip = +W.slip.toFixed(3); stats.walkLift = +W.lift.toFixed(3);
+  const A = stage(arig);
+  // the dart after release: a free copy flies on from the release transform (preview only: a light glide with a
+  // small drop, speed capped at 8 m/s; the scene that owns R6 takes over from rig.dartRelease()). PROPOSED.
+  const free = makeDart({ state: 'dart' }); free.visible = false; A.add(free);
+  arig.root.position.set(0, 0, 0); arig.root.rotation.y = 0;
+  const REL = arig.dartRelease();
+  stats.release = { t: REL.t, height: +REL.position.y.toFixed(2), speed: +REL.velocity.length().toFixed(2) };
+  const flyAt = (rel, dt) => {
+    const v = rel.velocity.clone(); if (v.length() > 8) v.setLength(8);
+    v.y += 0.4;
+    const g = -1.6, p = rel.position.clone().addScaledVector(v, dt); p.y += 0.5 * g * dt * dt;
+    const d = v.clone(); d.y += g * dt;
+    free.position.copy(p);
+    free.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d.normalize());
+    free.visible = true;
+  };
+  // apply an animation frame to the anim rig: pose, walk travel, beam, flying dart
+  const target = new THREE.Vector3();
+  const frame = (rig, name, t, travel = true) => {
+    rig.root.position.set(0, 0, 0);
+    if (travel && (name === 'walk' || name === 'walk_away')) rig.root.position.z = W.v * (t - ANIMS[name].dur / 2);
+    rig.play(name, t);
+    const P = evalAnim(name, t);
+    rig.aim(rig.root.localToWorld(target.set(0.5, 3.6, 6)), {});
+    rig.beam.visible = P.raise > 0.02;
+    free.visible = false;
+    if (name === 'throw_dart' && t >= REL.t) flyAt(REL, t - REL.t);
+    return P;
+  };
+  const camAt = (a, dist = 7, y = 1.15, look = 1.05) => {
+    const c = new THREE.PerspectiveCamera(22, 3 / 4, 0.1, 60);
+    c.position.set(Math.sin(a) * dist, y, Math.cos(a) * dist); c.lookAt(0, look, 0); return c;
+  };
+  const FL = Math.PI / 4, FR = -Math.PI / 4, BK = Math.PI * 0.75; // front-left (lantern side), front-right (map side), back three-quarter
+  const ROWS = [
+    ['idle', FL], ['walk', FL], ['walk', Math.PI / 2, 'side'], ['raise_lantern', FL], ['unfurl_map', FR], ['fold_dart', FR],
+    ['throw_dart', FR], ['throw_dart', -Math.PI / 2, 'side'], ['nod', FL], ['nod', Math.PI / 2, 'side close', [4, 1.5, 1.4]],
+    ['walk_away', BK],
+  ];
+  const animsEl = document.getElementById('anims');
+  for (const [name, a, tag, cv] of ROWS) {
+    const D = ANIMS[name].dur;
+    const h3 = document.createElement('h3');
+    h3.textContent = `${name} · ${D.toFixed(1)}s${ANIMS[name].loop ? ' loop' : ''}${tag ? ' · ' + tag : ''}`;
+    animsEl.append(h3);
+    const row = document.createElement('div'); row.className = 'six'; animsEl.append(row);
+    const cam = camAt(a, ...(cv ?? []));
+    for (let i = 0; i <= 5; i++) {
+      const t = (i / 5) * D;
+      frame(arig, name, t);
+      shot(A, cam, 300, 400, row, `${tag ?? 'anim'} · ${name} · t ${t.toFixed(2)}s`);
+    }
+  }
+  free.visible = false;
+  // flat silhouettes at the camera keys (the frame cropped around the figure with a view offset)
+  const silEl = document.getElementById('sil');
+  for (const [name, K, kn] of [['walk', K7, 'K7'], ['raise_lantern', K8, 'K8']]) {
+    const srig = await makeCartographer({ pose: 'idle' });
+    const s = flat(); s.add(srig.root);
+    const row = document.createElement('div'); row.className = 'six'; silEl.append(row);
+    const D = ANIMS[name].dur, cam = K.cam();
+    srig.root.position.set(...K.at); srig.root.rotation.y = K.rot; srig.play(name, D);
+    cam.aspect = 16 / 9; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    const ph = projH(srig, cam, 720), ch = Math.min(720, Math.max(60, ph.h * 2.1)), cw = ch * 0.75;
+    for (let i = 0; i <= 5; i++) {
+      const t = (i / 5) * D;
+      srig.play(name, t);
+      cam.setViewOffset(1280, 720, ph.cx * 1280 - cw / 2, ph.cy * 720 - ch / 2, cw, ch);
+      R.setSize(240, 320, false); R.render(s, cam);
+      const c = document.createElement('canvas'); c.width = 240; c.height = 320; c.getContext('2d').drawImage(R.domElement, 0, 0);
+      fig(row, c, `${kn} · ${name} · t ${t.toFixed(2)}s`);
+    }
+    cam.clearViewOffset();
+  }
+  // the dart's states, lit, close
+  {
+    const dEl = document.getElementById('dart');
+    const s = new THREE.Scene(); s.background = col('graphite');
+    s.add(new THREE.HemisphereLight(col('bone'), col('ink'), 0.7));
+    const k = new THREE.DirectionalLight(col('bone'), Math.PI * 0.9); k.position.set(-1, 3, 2); s.add(k);
+    const d = makeDart({ state: 'map' }); s.add(d);
+    const top = new THREE.PerspectiveCamera(30, 4 / 3, 0.05, 10); top.position.set(0, 0.75, 0.001); top.lookAt(0, 0, 0);
+    const tq = new THREE.PerspectiveCamera(30, 4 / 3, 0.05, 10); tq.position.set(0.42, 0.34, 0.5); tq.lookAt(0, 0.01, 0);
+    d.userData.setState(0); shot(s, top, 320, 240, dEl, 'dart · map · top');
+    for (const [st, nm] of [[0, 'map'], [0.5, 'folding'], [1, 'dart'], [1.5, 'gilding'], [2, 'gold']]) {
+      d.userData.setState(st); shot(s, tq, 320, 240, dEl, `dart · ${nm} · state ${st.toFixed(1)}`);
+    }
+  }
+
+  /* ---------------- live player (outside the figures, so the test does not save it) ---------------- */
+  const liveC = document.getElementById('liveC'), selA = document.getElementById('liveA');
+  const tIn = document.getElementById('liveT'), tV = document.getElementById('liveTv'), playIn = document.getElementById('liveP');
+  const code = document.getElementById('liveCode');
+  for (const n of Object.keys(ANIMS)) { const op = document.createElement('option'); op.value = op.textContent = n; selA.append(op); }
+  selA.value = 'walk';
+  const liveCam = camAt(FL);
+  const keysText = (n) => {
+    const a = ANIMS[n], DEFS = { fold: 170, mapTilt: -20, mapX: 0.5, map: 1 };
+    const fmt = (p) => Object.entries(p).filter(([k, v]) => k !== 'raised' && v !== (DEFS[k] ?? 0)).map(([k, v]) => `${k}: ${+(+v).toFixed(1)}`).join(', ');
+    return `ANIMS.${n} = { dur: ${a.dur}${a.loop ? ', loop: true' : ''}${a.release ? ', release: ' + a.release : ''}, keys: [\n` +
+      a.keys.map(([u, p, e]) => `  [${u.toFixed(3)}, { ${fmt(p)} }, '${e}'],`).join('\n') + '\n] }';
+  };
+  let last = null;
+  const liveDraw = (t) => {
+    const n = selA.value, D = ANIMS[n].dur;
+    frame(arig, n, t, false);
+    R.setSize(480, 640, false); liveCam.aspect = 3 / 4; liveCam.updateProjectionMatrix();
+    R.render(A, liveCam);
+    liveC.getContext('2d').drawImage(R.domElement, 0, 0);
+    tIn.value = (t / D).toFixed(3); tV.textContent = `${t.toFixed(2)}s / ${D.toFixed(1)}s`;
+    if (last !== n) { code.textContent = keysText(n); last = n; }
+  };
+  liveDraw(0);
   out.ok = true; Object.assign(out, stats);
+  if (!navigator.webdriver) {
+    let t0 = performance.now(), tt = 0;
+    selA.onchange = () => { tt = 0; liveDraw(0); };
+    tIn.oninput = () => { playIn.checked = false; tt = +tIn.value * ANIMS[selA.value].dur; liveDraw(tt); };
+    const loop = (now) => {
+      if (playIn.checked) {
+        const D = ANIMS[selA.value].dur, hold = ANIMS[selA.value].loop ? 0 : 0.6;
+        tt += Math.min(0.1, (now - t0) / 1000);
+        if (ANIMS[selA.value].loop) tt %= D; else if (tt > D + hold) tt = 0;
+        liveDraw(Math.min(tt, D));
+      }
+      t0 = now;
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
   document.getElementById('stats').textContent =
-`hinges            ${stats.hinges}   (target 20)
-triangles         ${stats.tris}   (budget ≤ 10 000)
+`hinges            ${stats.hinges}   (budget ≤ 30)
+triangles         ${stats.tris}   (budget ≤ 10 000) · dart ${stats.dartTris} (budget ≤ 600)
+animations        ${stats.anims.length}: ${stats.anims.map(n => `${n} ${ANIMS[n].dur}s`).join(' · ')}
+walk              ${stats.walkSpeed} m/s (WALK.step ${WALK.step} m) · heel / toe slip ${(stats.walkSlip * 100).toFixed(1)} cm while down · flat foot lift up to ${(stats.walkLift * 100).toFixed(1)} cm
+dart release      t ${stats.release.t.toFixed(2)}s · ${stats.release.height} m up · ${stats.release.speed} m/s (stroke average, cocked key to release)
 K7 figure height  ${stats.K7.h}px at 1440×810 · centre (${stats.K7.cx}, ${stats.K7.cy}) of frame
 K8 figure height  ${stats.K8.h}px at 1440×810 · centre (${stats.K8.cx}, ${stats.K8.cy}) of frame
 placement         K7 (0.88, 0, −24.1) walking −z · K8 (1.8, 0, −34.6) on the walked path, facing the fault window (PROPOSED)`;
