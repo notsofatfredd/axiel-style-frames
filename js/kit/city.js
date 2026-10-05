@@ -263,7 +263,7 @@ export async function shareCardCanvas() {
 }
 
 /* Nameplate: business details in gold leaf on stone (repaired) or blank (fault). */
-function nameplateCanvas(filled) {
+export function nameplateCanvas(filled) {   // exported for the G4 animatic
   const w = FB.plate.x1 - FB.plate.x0, h = FB.plate.y1 - FB.plate.y0;
   const c = canvas(Math.round(w * PPU), Math.round(h * PPU)), x = c.getContext('2d');
   x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);

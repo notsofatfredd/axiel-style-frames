@@ -1,6 +1,7 @@
 """Build the review gallery from the per-frame render artifacts.
 
-Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir]
+Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir] [animatic_dir]
+  animatic_dir: optional, the G4 grey-box animatic from tools/animatic.mjs (MP4s, storyboard JPEGs, plot map, anim.json)
   parts_dir: one folder per frame job, each with PNGs and render-log.json (from tools/render.mjs)
   carto_dir: optional, the Cartographer silhouette test from tools/carto.mjs (PNGs + carto.json)
   objects_dir: optional, the G3 hero objects from tools/objects.mjs (PNGs + objects.json)
@@ -22,7 +23,7 @@ SCENE = {'SF-01': 'Surface', 'SF-02': 'Fall', 'SF-03': 'ATLAS', 'SF-04': 'INDEX'
 VARIANT = [('high', 'desktop'), ('mid', 'desktop'), ('high', 'phone'), ('mid', 'phone')]
 
 
-def main(parts, out, run, carto=None, objects=None):
+def main(parts, out, run, carto=None, objects=None, animatic=None):
     parts, out = Path(parts), Path(out)
     (out / 'full').mkdir(parents=True, exist_ok=True)
     (out / 'thumbs').mkdir(exist_ok=True)
@@ -105,6 +106,42 @@ def main(parts, out, run, carto=None, objects=None):
         objects_html = (f'<section id="objects"><h2><span>G3</span> Hero objects</h2><p class="meta">Budgets from §3.2 / §3.3{gate} · '
                         f'<a href="../objects.html">live page</a>{pend}</p><div class="tbl"><table><thead><tr><th>Object</th><th>Measured</th><th>Budget</th>'
                         f'<th>Result</th><th>Notes</th></tr></thead><tbody>{trs}</tbody></table></div><div class="shots">{figs}</div></section>')
+    # G4: grey-box animatic, videos + plot map + storyboard as captured, clearance / legibility / pacing from anim.json
+    anim_html = ''
+    aj = Path(animatic) / 'anim.json' if animatic else None
+    if aj and aj.exists():
+        a = json.loads(aj.read_text(encoding='utf-8'))
+        shutil.copytree(animatic, out / 'animatic', dirs_exist_ok=True)
+        rep = a.get('report') or {}
+        vids = ''.join(f'<figure class="{"phone" if v["vp"] == "phone" else ""}"><video controls preload="metadata" playsinline src="animatic/{html.escape(v["file"])}"></video>'
+                       f'<figcaption><b>{"Desktop 1440×900" if v["vp"] == "desk" else "Phone 390×844"}</b><span>{v["seconds"]:.0f} s at {v["fps"]} fps (PROPOSED steady scroll)</span></figcaption></figure>'
+                       for v in a.get('videos', []))
+        def pf(b):
+            return f'<span class="{"pass" if b else "bad"}">{"PASS" if b else "FAIL"}</span>'
+        clr = ''
+        for vp, name in (('desk', 'Desktop'), ('phone', 'Phone')):
+            c = (rep.get('clearance') or {}).get(vp)
+            if not c:
+                continue
+            mins = ' · '.join(f'{k} {m["d"]:.2f} ({html.escape(m["at"])})' for k, m in c['min'].items())
+            inter = '; '.join(f'{html.escape(i["name"])} p {i["p0"]:.3f}–{i["p1"]:.3f}' for i in c['intersections']) or 'none'
+            corr = '; '.join(f'{html.escape(x["at"])} min {x["d"]:.2f} ({html.escape(x["name"])})' for x in c['corridor']) or 'held'
+            cross = '; '.join(f'{html.escape(x["at"])} margin {x["margin"]:.2f}' for x in c['crossings'])
+            clr += f'<tr><td>{name}</td><td>{pf(c["pass"])}</td><td>{mins}</td><td>{inter}</td><td>{corr}</td><td>{cross}</td></tr>'
+        leg = ''.join(f'<tr><td>{html.escape(r["item"])}</td><td>{r["key"]}</td><td>{pf(r["desk"]["pass"])} {r["desk"]["px"]:.1f}{"" if r["desk"]["fits"] else " (clipped)"}</td>'
+                      f'<td>{pf(r["phone"]["pass"])} {r["phone"]["px"]:.1f}{"" if r["phone"]["fits"] else " (clipped)"}</td></tr>' for r in rep.get('legibility', []))
+        flags = ''.join(f'<tr><td>{vp}</td><td>{r["seg"]}</td><td>{r["dur"]:.2f} s</td><td>{r["speed"]:.1f}</td><td>{r["turn"]:.0f}</td><td class="ceil">{html.escape(r["flag"])}</td></tr>'
+                        for vp in ('desk', 'phone') for r in (rep.get('pacing') or {}).get(vp, []) if r.get('flag'))
+        board = {vp: ''.join(f'<figure class="{"phone" if vp == "phone" else ""}"><a href="animatic/{html.escape(f["file"])}"><img src="animatic/{html.escape(f["file"])}" alt="{html.escape(f["cap"])}" loading="lazy"></a>'
+                             f'<figcaption><span>{html.escape(f["cap"])}</span></figcaption></figure>' for f in a.get('files', []) if f.get('vp') == vp) for vp in ('desk', 'phone')}
+        gate = f' · GATE: {html.escape(a["gate"])}' if a.get('gate') else ''
+        anim_html = (f'<section id="animatic"><h2><span>G4</span> Grey-box animatic</h2><p class="meta">Event timings and scroll speed PROPOSED{gate} · '
+                     f'<a href="animatic/clearance.md">clearance.md</a> · <a href="animatic/plot-map.png">plot map</a> · <a href="../animatic.html">live page (scrub it)</a></p>'
+                     f'<div class="shots">{vids}<figure><a href="animatic/plot-map.png"><img src="animatic/plot-map.png" alt="Plot map" loading="lazy"></a><figcaption><b>Plot map</b></figcaption></figure></div>'
+                     f'<h3>Clearance</h3><div class="tbl"><table><thead><tr><th>Viewport</th><th>Result</th><th>Closest per obstacle</th><th>Intersections</th><th>Corridor r 1.5</th><th>Tear crossings</th></tr></thead><tbody>{clr}</tbody></table></div>'
+                     f'<h3>Legibility at the key (cap px; min 18 desktop, 14 phone)</h3><div class="tbl"><table><thead><tr><th>Text</th><th>Key</th><th>1440×900</th><th>390×844</th></tr></thead><tbody>{leg}</tbody></table></div>'
+                     f'<h3>Pacing flags</h3><div class="tbl"><table><thead><tr><th>Viewport</th><th>Segment</th><th>Time</th><th>Units/s</th><th>Peak turn °/s</th><th>Flag</th></tr></thead><tbody>{flags or "<tr><td>none</td></tr>"}</tbody></table></div>'
+                     f'<h3>Storyboard, desktop</h3><div class="shots">{board["desk"]}</div><h3>Storyboard, phone</h3><div class="shots">{board["phone"]}</div></section>')
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -125,6 +162,8 @@ nav {{ display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 8px; }}
 nav a {{ font: 500 12px/1 "JetBrains Mono", monospace; color: var(--bone); text-decoration: none; background: var(--graphite); padding: 8px 10px; }}
 section {{ padding: 28px 0 8px; border-top: 1px solid var(--graphite); margin-top: 20px; }}
 h2 {{ margin: 0 0 14px; font-weight: 300; font-size: 22px; letter-spacing: .04em; }}
+h3 {{ font: 500 12px "JetBrains Mono", monospace; color: var(--stone); letter-spacing: .06em; text-transform: uppercase; margin: 20px 0 8px; }}
+video {{ display: block; width: 100%; height: auto; background: var(--graphite); }}
 h2 span {{ font: 500 13px "JetBrains Mono", monospace; color: var(--atlas-gold); margin-right: 8px; vertical-align: middle; }}
 .shots {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }}
 figure {{ margin: 0; }}
@@ -144,9 +183,9 @@ footer {{ padding-top: 32px; padding-bottom: 48px; font-size: 13px; color: var(-
 <h1><b>AXIEL</b> · Gate G2 style frames</h1>
 <p class="meta">{ok} of {len(log)} rendered · run {html.escape(str(run))} · {when}<br>
 Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <a href="../">live harness (renders on your device, heavy)</a></p>
-<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}</nav>
+<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}{'<a href="#animatic">ANIMATIC</a>' if anim_html else ''}</nav>
 </header>
-<main>{''.join(cards)}{carto_html}{objects_html}</main>
+<main>{''.join(cards)}{carto_html}{objects_html}{anim_html}</main>
 <footer>Rendered by the Render frames workflow on GitHub Actions (software WebGL). Numbers are a headless check, not a visual review.</footer>
 </body></html>
 """
@@ -157,4 +196,4 @@ Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <
 
 if __name__ == '__main__':
     main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local', sys.argv[4] if len(sys.argv) > 4 else None,
-         sys.argv[5] if len(sys.argv) > 5 else None)
+         sys.argv[5] if len(sys.argv) > 5 else None, sys.argv[6] if len(sys.argv) > 6 else None)
