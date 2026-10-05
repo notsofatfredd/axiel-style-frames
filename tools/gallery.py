@@ -114,7 +114,7 @@ def main(parts, out, run, carto=None, objects=None, animatic=None):
         shutil.copytree(animatic, out / 'animatic', dirs_exist_ok=True)
         rep = a.get('report') or {}
         vids = ''.join(f'<figure class="{"phone" if v["vp"] == "phone" else ""}"><video controls preload="metadata" playsinline src="animatic/{html.escape(v["file"])}"></video>'
-                       f'<figcaption><b>{"Desktop " + v.get("size", "1440×900") if v["vp"] == "desk" else "Phone 390×844"}</b><span>{v["seconds"]:.0f} s at {v["fps"]} fps (PROPOSED steady scroll)</span></figcaption></figure>'
+                       f'<figcaption><b>{"Desktop " + v.get("size", "1440×900") if v["vp"] == "desk" else "Phone 390×844"} · camera {html.escape(v.get("cam", "linear"))}</b><span>{v["seconds"]:.0f} s at {v["fps"]} fps (PROPOSED steady scroll){"; smooth timing is PROPOSED, not a §5.1 curve" if v.get("cam") == "smooth" else ""}</span></figcaption></figure>'
                        for v in a.get('videos', []))
         def pf(b):
             return f'<span class="{"pass" if b else "bad"}">{"PASS" if b else "FAIL"}</span>'
@@ -135,10 +135,15 @@ def main(parts, out, run, carto=None, objects=None, animatic=None):
         board = {vp: ''.join(f'<figure class="{"phone" if vp == "phone" else ""}"><a href="animatic/{html.escape(f["file"])}"><img src="animatic/{html.escape(f["file"])}" alt="{html.escape(f["cap"])}" loading="lazy"></a>'
                              f'<figcaption><span>{html.escape(f["cap"])}</span></figcaption></figure>' for f in a.get('files', []) if f.get('vp') == vp) for vp in ('desk', 'phone')}
         gate = f' · GATE: {html.escape(a["gate"])}' if a.get('gate') else ''
-        anim_html = (f'<section id="animatic"><h2><span>G4</span> Grey-box animatic</h2><p class="meta">Event timings and scroll speed PROPOSED{gate} · '
-                     f'<a href="animatic/clearance.md">clearance.md</a> · <a href="animatic/plot-map.png">plot map</a> · <a href="../animatic.html">live page (scrub it)</a></p>'
+        tm = rep.get('timing')
+        cams = ''.join(f'<tr><td>{html.escape(m)}</td><td>{v}</td><td>{r["peak"]:.0f}</td><td>{r["turn"]:.0f}</td><td>{r["jumps"]}</td><td>{r["dead"]}</td><td>{"yes" if r["keysAtP"] else "no"}</td><td>{pf(r["reverse"]["pass"])}</td></tr>'
+                       for m, o in (rep.get('camera') or {}).items() for v, r in o.items())
+        timing = (f'<h3>Timing (G5): {pf(tm["pass"])} on {len(tm["rows"])} checks · <a href="animatic/timing.md">timing.md</a></h3>'
+                  f'<div class="tbl"><table><thead><tr><th>Camera timing</th><th>Viewport</th><th>Peak u/s</th><th>Peak turn °/s</th><th>Speed jumps</th><th>Dead stops</th><th>Keys at p</th><th>Reverse scroll</th></tr></thead><tbody>{cams}</tbody></table></div>') if tm else ''
+        anim_html = (f'<section id="animatic"><h2><span>G4 / G5</span> Grey-box animatic</h2><p class="meta">Beat times from the G5 timing table; scroll speed and rows marked PROPOSED are set by the build{gate} · '
+                     f'<a href="animatic/timing.md">timing.md</a> · <a href="animatic/clearance.md">clearance.md</a> · <a href="animatic/plot-map.png">plot map</a> · <a href="../animatic.html">live page (scrub it)</a></p>'
                      f'<div class="shots">{vids}<figure><a href="animatic/plot-map.png"><img src="animatic/plot-map.png" alt="Plot map" loading="lazy"></a><figcaption><b>Plot map</b></figcaption></figure></div>'
-                     f'<h3>Clearance</h3><div class="tbl"><table><thead><tr><th>Viewport</th><th>Result</th><th>Closest per obstacle</th><th>Intersections</th><th>Corridor r 1.5</th><th>Tear crossings</th></tr></thead><tbody>{clr}</tbody></table></div>'
+                     f'{timing}<h3>Clearance</h3><div class="tbl"><table><thead><tr><th>Viewport</th><th>Result</th><th>Closest per obstacle</th><th>Intersections</th><th>Corridor r 1.5</th><th>Tear crossings</th></tr></thead><tbody>{clr}</tbody></table></div>'
                      f'<h3>Legibility at the key (cap px; min 18 desktop, 14 phone)</h3><div class="tbl"><table><thead><tr><th>Text</th><th>Key</th><th>1440×900</th><th>390×844</th></tr></thead><tbody>{leg}</tbody></table></div>'
                      f'<h3>Pacing flags</h3><div class="tbl"><table><thead><tr><th>Viewport</th><th>Segment</th><th>Time</th><th>Units/s</th><th>Peak turn °/s</th><th>Flag</th></tr></thead><tbody>{flags or "<tr><td>none</td></tr>"}</tbody></table></div>'
                      f'<h3>Storyboard, desktop</h3><div class="shots">{board["desk"]}</div><h3>Storyboard, phone</h3><div class="shots">{board["phone"]}</div></section>')

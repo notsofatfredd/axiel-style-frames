@@ -37,14 +37,15 @@
 </script>
 </head>
 <body>
-<h1><b>AXIEL</b> · G4 · Grey-box animatic</h1>
-<p>The §4.3 camera path (camera.js, with the G2 amendments) flown through a grey-box world built from the production kits' own numbers: city plots, fault building with its real share card and nameplate, cliff and carved lines, the paper wall's tear outline, the Living Core's real geometry. Event timings marked PROPOSED are the animatic's, not the protocol's. Clearance, legibility and pacing are computed from the same numbers.</p>
+<h1><b>AXIEL</b> · G4 / G5 · Grey-box animatic</h1>
+<p>The §4.3 camera path (camera.js, with the G2 amendments) flown through a grey-box world built from the production kits' own numbers: city plots, fault building with its real share card and nameplate, cliff and carved lines, the paper wall's tear outline, the Living Core's real geometry. Beat times come from the G5 timing table (js/timeline.js, protocol §5.3); rows marked PROPOSED are the build's, not the protocol's. Copy is drawn where it is on screen at a steady scroll, for timing only (its placement is set at G6). Clearance, legibility, pacing and the timing checks are computed from the same numbers.</p>
 <div class="stage">
   <canvas id="hud" width="1440" height="900"></canvas>
   <div class="ctl">
     <button id="vpDesk" aria-pressed="true">Desktop 1440×900</button>
     <button id="vpPhone" aria-pressed="false">Phone 390×844</button>
     <button id="play">Play</button>
+    <label>Camera <select id="cam" aria-label="Camera timing"><option value="linear">linear (§5.1)</option><option value="smooth">smooth (PROPOSED)</option><option value="shots">shots (EASE_CAMERA)</option></select></label>
     <input id="scrub" type="range" min="0" max="1" step="0.001" value="0" aria-label="Scroll progress">
     <span id="pv">p 0.000</span>
   </div>
@@ -62,6 +63,7 @@ import { WALL } from './js/kit/paperwall.js';
 import { makeCore, CORE } from './js/kit/livingcore.js';
 import { KEYS, SCENES, sceneAt, cameraAt } from './js/camera.js';
 import * as GB from './js/kit/greybox.js';
+import * as TL from './js/timeline.js';
 
 const errors = [];
 const A = window.__anim = { ready: false, errors };
@@ -173,11 +175,12 @@ try {
   const cam = new THREE.PerspectiveCamera(40, 16 / 10, 0.05, 600);
   const VPS = { ...GB.VIEWPORTS, hd: { W: 1920, H: 1080 } };   // hd: the §4.4 1920×1080 recording of the desktop path (legibility stays on desk and phone)
   const hud = $('hud'), hx = hud.getContext('2d');
-  let vp = 'desk';
+  let vp = 'desk', camMode = TL.CAMERA_MODES[new URLSearchParams(location.search).get('cam')] ? new URLSearchParams(location.search).get('cam') : 'linear';
+  const secPerP = () => GB.VH[vp === 'phone' ? 'phone' : 'desk'] / GB.SCROLL_VH_PER_S;   // hd records the desktop scroll
   const W = GB.world();
 
   function pose(p) {
-    const phone = vp === 'phone', s = cameraAt(p, phone);
+    const phone = vp === 'phone', s = cameraAt(TL.CAMERA_MODES[camMode](p, phone), phone);
     cam.position.copy(s.pos); cam.fov = s.fov; cam.up.set(0, 1, 0); cam.lookAt(s.look); if (s.roll) cam.rotateZ(s.roll);
     cam.aspect = VPS[vp].W / VPS[vp].H; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
     setWall(GB.tearOpen(p));
@@ -196,12 +199,26 @@ try {
     const small = V.W < 600, f = small ? 11 : 15, pad = small ? 10 : 18;
     const near = GB.nearest(s.pos, p, W).filter(o => o.cls !== 'ground').reduce((a, b) => (b.d < a.d ? b : a));
     const sc = sceneAt(p);
+    const beats = TL.active(p, secPerP()), bl = small ? 3 : 5;
     const rows = [`p ${p.toFixed(3)} · ${s.key} (${KEYS[s.seg].key}→${KEYS[s.seg + 1].key})`, `Scene ${sc.n} ${sc.name} · FOV ${s.fov.toFixed(0)}${s.roll ? ` · roll ${(s.roll * 180 / Math.PI).toFixed(1)}°` : ''}`,
-      `nearest ${near.d.toFixed(2)} · ${near.name}`, 'GREY BOX · beats §5.3'];
+      `nearest ${near.d.toFixed(2)} · ${near.name}`, `beats ${beats.length ? beats.slice(0, bl).join(' · ') + (beats.length > bl ? ' …' : '') : '·'}`, `GREY BOX · camera ${camMode}`];
     hx.font = `500 ${f}px "JetBrains Mono", monospace`;
     const bw = Math.max(...rows.map(r => hx.measureText(r).width)) + pad;
     hx.fillStyle = 'rgba(11,11,12,0.72)'; hx.fillRect(pad / 2, pad / 2, bw, rows.length * f * 1.45 + pad / 2);
-    rows.forEach((r, i) => { hx.fillStyle = i === 2 && near.d < GB.CORRIDOR.r && p >= GB.CORRIDOR.p0 && p <= GB.CORRIDOR.p1 ? HEX.red : i === 3 ? HEX.stone : HEX.bone; hx.fillText(r, pad, pad / 2 + f * 1.15 + i * f * 1.45); });
+    rows.forEach((r, i) => { hx.fillStyle = i === 2 && near.d < GB.CORRIDOR.r && p >= GB.CORRIDOR.p0 && p <= GB.CORRIDOR.p1 ? HEX.red : i === 3 ? HEX.gold : i === 4 ? HEX.stone : HEX.bone; hx.fillText(r, pad, pad / 2 + f * 1.15 + i * f * 1.45); });
+    // copy at its §5.3 / G5 timing (opacity at a steady scroll); timing only, placement is G6's
+    const cy = V.H - (small ? 34 : 52), cs = small ? 15 : 26, cw = V.W - 2 * pad;
+    let y = cy;
+    for (const c of TL.copyAt(p, secPerP()).reverse()) {
+      const lines = c.lines.flatMap((t, j) => { setFont(hx, j ? 300 : 400, j ? cs * 0.6 : cs, 'Montserrat', 0); return wrap(hx, t, cw); });
+      for (let j = lines.length - 1; j >= 0; j--) {
+        const sub = c.id === 'hero_out' && j === lines.length - 1, sz = sub ? cs * 0.6 : cs;
+        setFont(hx, sub ? 300 : 400, sz, 'Montserrat', 0);
+        hx.globalAlpha = c.a; hx.fillStyle = 'rgba(11,11,12,0.55)'; hx.fillRect(pad / 2, y - sz * 1.05, hx.measureText(lines[j]).width + pad, sz * 1.35);
+        hx.fillStyle = HEX.paper; hx.fillText(lines[j], pad, y); y -= sz * 1.4;
+      }
+      hx.globalAlpha = 1; y -= cs * 0.4;
+    }
     // progress bar with key ticks
     const by = V.H - (small ? 14 : 20), bh = small ? 4 : 6;
     hx.fillStyle = 'rgba(11,11,12,0.6)'; hx.fillRect(0, by - 8, V.W, bh + 16);
@@ -210,6 +227,8 @@ try {
     hx.fillStyle = HEX.bone; for (const k of KEYS) hx.fillRect(pad + (V.W - 2 * pad) * k.p - 0.5, by - 4, 1, bh + 8);
     return s;
   }
+  function setCam(m) { if (TL.CAMERA_MODES[m]) { camMode = m; $('cam').value = m; } }
+  setCam(camMode);
   function setVP(v) {
     vp = v; const V = VPS[v];
     renderer.setSize(V.W, V.H, false); hud.width = V.W; hud.height = V.H; hud.className = v;
@@ -281,6 +300,13 @@ try {
     clearance: { desk: GB.clearance(false, W), phone: GB.clearance(true, W) },
     legibility: GB.legibility(GB.textItems(measure, RES)),
     pacing: { desk: GB.pacing(false), phone: GB.pacing(true) },
+    timing: TL.check({ desk: GB.VH.desk / GB.SCROLL_VH_PER_S, phone: GB.VH.phone / GB.SCROLL_VH_PER_S }),
+    beats: TL.BEATS, carriers: TL.CARRIERS,
+    camera: Object.fromEntries(Object.keys(TL.CAMERA_MODES).map(m => [m, Object.fromEntries(['desk', 'phone'].map(v => {
+      const ph = v === 'phone', fn = (p) => TL.CAMERA_MODES[m](p, ph), rows = GB.pacing(ph, 200, fn), rev = TL.reverseTest(p => cameraAt(fn(p), ph), GB.VH[v] / GB.SCROLL_VH_PER_S);
+      return [v, { peak: Math.max(...rows.map(r => r.peak)), turn: Math.max(...rows.map(r => r.turn)), jumps: rows.filter(r => r.jump > 1.5).length, dead: rows.filter(r => r.dead).length,
+        flagged: rows.filter(r => r.flag).length, keysAtP: KEYS.every(k => Math.abs(fn(k.p) - k.p) < 1e-9), reverse: { pass: rev.pass, frames: rev.frames, worst: rev.worst, issues: rev.issues.slice(0, 5) }, rows }];
+    }))])),
     result: { desk: { title: RES.desk.title.lines, desc: RES.desk.desc.lines, intact: titleIntact(RES.desk.title.lines) }, phone: { title: RES.phone.title.lines, desc: RES.phone.desc.lines, intact: titleIntact(RES.phone.title.lines) } },
     keys: KEYS.map(k => ({ key: k.key, p: k.p, note: k.note, g2: k.g2 })), scenes: SCENES,
   };
@@ -301,10 +327,15 @@ try {
   h += T(['Text', 'Key', 'Cap', '1440×900 px', 'Fits', '390×844 px', 'Fits'], report.legibility.map(r => [esc(r.item), r.key, r.cap, `${pf(r.desk.pass)} ${fmt(r.desk.px, 1)}`, pf(r.desk.fits), `${pf(r.phone.pass)} ${fmt(r.phone.px, 1)}`, pf(r.phone.fits)]));
   h += `<p>Printed result title lines: desktop ${report.result.desk.title.map(esc).join(' / ')}; phone ${report.result.phone.title.map(esc).join(' / ')}. "Beyond Immediate Reality" kept as one unit: desktop ${pf(report.result.desk.intact)}, phone ${pf(report.result.phone.intact)}.</p>`;
   for (const v of ['desk', 'phone']) {
-    h += `<h2>Pacing · ${v === 'desk' ? 'desktop' : 'phone'} at ${GB.SCROLL_VH_PER_S} vh/s (PROPOSED steady scroll, ${fmt(GB.VH[v] / GB.SCROLL_VH_PER_S, 0)} s)</h2>`;
-    h += T(['Segment', 'p', 'Seconds', 'Path units', 'Units/s', 'Peak turn °/s', 'FOV °/s', 'Flag'], report.pacing[v].map(r => [r.seg, `${r.p0.toFixed(2)}–${r.p1.toFixed(2)}`, fmt(r.dur), fmt(r.len, 1), fmt(r.speed, 1), fmt(r.turn, 0), fmt(r.fovRate, 1), r.flag ? `<span class="NOTE">${r.flag}</span>` : '']));
+    h += `<h2>Pacing · ${v === 'desk' ? 'desktop' : 'phone'} · camera linear at ${GB.SCROLL_VH_PER_S} vh/s (PROPOSED steady scroll, ${fmt(GB.VH[v] / GB.SCROLL_VH_PER_S, 0)} s)</h2>`;
+    h += T(['Segment', 'p', 'Seconds', 'Path units', 'Units/s', 'Peak u/s', 'Peak turn °/s', 'FOV °/s', 'Flag'], report.pacing[v].map(r => [r.seg, `${r.p0.toFixed(2)}–${r.p1.toFixed(2)}`, fmt(r.dur), fmt(r.len, 1), fmt(r.speed, 1), fmt(r.peak, 1), fmt(r.turn, 0), fmt(r.fovRate, 1), r.flag ? `<span class="NOTE">${r.flag}</span>` : '']));
   }
-  h += `<h2>Timeline (PROPOSED)</h2>` + T(['Event', 'When'], GB.TIMELINE.map(([a, b]) => [a, esc(b)]));
+  h += `<h2>Timing checks (G5) · ${pf(report.timing.pass)}</h2>` + T(['Check', 'Result', 'Detail'], report.timing.rows.map(r => [esc(r.check), pf(r.pass), esc(r.detail)]));
+  h += `<h2>Camera timing modes (G5): ${GB.SCROLL_VH_PER_S} vh/s steady scroll</h2>` + T(['Mode', 'Viewport', 'Peak u/s', 'Peak turn °/s', 'Speed jumps > 1.5×', 'Dead stops', 'Flagged segments', 'Keys at their p', 'Reverse scroll'],
+    Object.entries(report.camera).flatMap(([m, o]) => Object.entries(o).map(([v, r]) => [m, v, fmt(r.peak, 0), fmt(r.turn, 0), r.jumps, r.dead, r.flagged, pf(r.keysAtP), `${pf(r.reverse.pass)} ${r.reverse.frames} frames`])));
+  h += `<h2>Timing table (§5.3, G5)</h2>` + T(['Beat', 'p', 'Type', 'Ease', 'Duration', 'What', 'Source'], TL.BEATS.map(b => [b.id, b.p1 > b.p0 ? `${b.p0.toFixed(3)}–${b.p1.toFixed(3)}` : b.p0.toFixed(2), b.type, b.ease ? 'EASE_' + b.ease : 'none', b.dur ? `${b.dur * 1000} ms` : '', esc(b.beat) + (b.note ? `<br><span class="NOTE">${esc(b.note)}</span>` : ''), b.src === 'PROPOSED' ? '<span class="NOTE">PROPOSED</span>' : b.src]));
+  h += `<h2>Transitions and their carriers (§5.4)</h2>` + T(['Transition', 'Carrier beat', 'What carries it'], TL.CARRIERS.map(([a, b, c]) => [a, b, esc(c)]));
+  h += `<h2>Grey-box shapes (PROPOSED)</h2>` + T(['Event', 'When'], GB.TIMELINE.map(([a, b]) => [a, esc(b)]));
   $('out').innerHTML = h;
 
   /* ---------- interaction + API ---------- */
@@ -313,12 +344,13 @@ try {
   $('scrub').addEventListener('input', e => { playing = false; show(+e.target.value); });
   $('vpDesk').onclick = () => { setVP('desk'); show(cur); };
   $('vpPhone').onclick = () => { setVP('phone'); show(cur); };
+  $('cam').onchange = (e) => { setCam(e.target.value); show(cur); };
   $('play').onclick = () => { playing = !playing; t0 = performance.now() - cur * GB.VH[vp] / GB.SCROLL_VH_PER_S * 1000; if (playing) requestAnimationFrame(tick); };
   function tick(now) { if (!playing) return; const p = Math.min(1, (now - t0) / 1000 * GB.SCROLL_VH_PER_S / GB.VH[vp]); show(p); if (p < 1) requestAnimationFrame(tick); else playing = false; }
   plotMap();
   show(0);
   Object.assign(A, {
-    setVP: (v) => setVP(v),
+    setVP: (v) => setVP(v), setCam: (m) => setCam(m),
     shot: (p, type = 'image/jpeg', q = 0.88) => { frame(p); return hud.toDataURL(type, q); },
     shots: (ps, type = 'image/jpeg', q = 0.88) => ps.map(p => { frame(p); return hud.toDataURL(type, q); }),
     plotMap, ready: true,

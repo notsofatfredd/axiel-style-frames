@@ -21,11 +21,12 @@ export const KEYS = [
   ['K4c', 0.19, [0, -6, -2.5], [0, -6, -6], 74, 'Face-on: carved line 3', [[0, -6, -1.0], [0, -6, -6]]],
   ['K4b', 0.20, [0, 3, -3.5], [0, 2, -14], 74, 'Above lip height, still in the chasm'],
   ['K5', 0.21, [0, 1.6, -9], [0, 1.2, -40], 74, 'Crest the lip, skim the plateau'],
-  ['K6', 0.23, [2, 1.6, -8], [0, 1.2, -14], 54, 'City accretes; behind the Cartographer'],
-  ['K7', 0.30, [1, 1.6, -20], [0, 1.2, -27], 54, 'Following the walk'],
+  ['K6', 0.23, [2, 1.6, -8], [-4.3, 0.34, -26.9], 54, 'City accretes; behind the Cartographer', null, 'G5: look target pushed out along the same ray to 20 (protocol (0, 1.2, −14), 6.3 away); same view, the turn on phone 141 → under 120°/s'],
+  ['K7', 0.30, [1, 1.6, -20], [-1.82, 0.47, -39.8], 54, 'Following the walk', null, 'G5: look target pushed out along the same ray to 20 (protocol (0, 1.2, −27)); same view'],
   ['K8', 0.36, [-6, 2.4, -28], [6, 6, -44], 54, 'Beam sweep, buildings light'],
-  ['K9', 0.40, [0.8, 1.5, -35.4], [2.1, 1.0, -37.2], 54, 'Fold the dart'],
-  ['K10', 0.43, [1, 24, -33], [3.8, 13.3, -48], 54, 'Follow the dart up', [[2, 24, -33], [5.5, 17, -56]], 'G4: climbs over the fault roof and looks at the dart where it is at 0.43 (protocol (−6, 8, −40) → (8, 20, −70) cut the fault building)'],
+  ['K9', 0.40, [0.8, 1.5, -35.4], [7.3, -1.0, -44.4], 54, 'Fold the dart', null, 'G5: look target pushed out along the same ray (2.3 → 11.5 away); same view, the climb to K10 no longer whips the view'],
+  ['K9h', 0.42, [0.8, 1.5, -35.4], [7.3, -1.0, -44.4], 54, 'Hold on the fold until the throw', null, 'G5: new hold key; the camera watches fold_dart (0.40) through to throw_dart (0.42)'],
+  ['K10', 0.44, [1, 24, -33], [5.56, 20.59, -60], 54, 'Follow the dart up', [[2, 24, -33], [6.6, 22.5, -66]], 'G4: climbs over the fault roof (protocol (−6, 8, −40) → (8, 20, −70) cut the fault building). G5: p 0.43 → 0.44 after the K9 hold, looks at the dart where it is at 0.44'],
   ['K11', 0.48, [24, 26, -82], [10, 24, -92], 54, 'Orbit start; the Core wakes'],
   ['K12', 0.54, [10, 25, -107], [10, 26.2, -92], 54, 'Orbit 120°, closer; the tiers turn', null, 'SF-05: backed off to distance 15, aimed at y 26.2 (protocol (10, 26, −104) → (10, 24, −92))'],
   ['K13', 0.59, [-4, 28, -90], [10, 23, -92], 54, 'Orbit 240°; the fix is released'],
@@ -37,7 +38,7 @@ export const KEYS = [
   ['K18', 0.90, [6, 5, -14], [6, 4, 0], 54, 'The ranked result on the back of the paper wall', [[0, 2.6, -17.2], [0, 1.6, 0]], 'SF-07b: desktop slid to x 6 (protocol x 0); phone backed off. G4: both 2 / 1.3 closer so the description reads 18 / 14 px'],
   ['K18b', 0.92, [0, 2, -7], [0, 0.5, 0], 60, 'Approach the tear from the lip', null, 'G4: raised 0.5 so the descent clears the cliff lip by 1.5'],
   ['K19', 0.94, [0, 0.4, 2.5], [0, 0.4, 12], 60, 'Through the tear; the tear heals behind'],
-  ['K19b', 0.96, [0, 0, 8], [4, 0, 8], 50, 'Mid turn-around'],
+  ['K19b', 0.96, [0, 0, 8], [10, 0, 8], 50, 'Mid turn-around', null, 'G5: look target 4 → 10 away (same ray), level with K19 and K20; the turn-around peak 215 → 135°/s desktop'],
   ['K20', 0.98, [0, 0, 10], [0, 0, 0], 40, 'Locked on the seal. Hold to 1.00'],
 ].map(([key, p, pos, look, fov, note, phone = null, g2 = null]) => ({ key, p, pos, look, fov, note, phone, g2 }));
 
@@ -52,7 +53,7 @@ export const sceneAt = (p) => { let i = 0; for (let k = 0; k < SCENES.length; k+
 // is a cusp: the point is doubled so the curve stops there instead of overshooting past it (G4: the overshoot
 // at K3b nodded the view 11° in 0.0006 of p). A key in STOPS is treated the same way: a held beat the camera
 // arrives at and leaves from without carrying momentum through it.
-export const STOPS = new Set(['K9']);   // G4: the fold (§5.3 fold_dart, 1.4 s); without it the climb to K10 dragged the camera to 0.1 above the ground
+export const STOPS = new Set(['K9', 'K9h']);   // the fold (§5.3 fold_dart 0.40, throw_dart 0.42), held K9 → K9h (G5); without the stop the climb to K10 dragged the camera to 0.1 above the ground (G4)
 class KeyedSpline {
   constructor(pts, stops = new Set()) {
     const DIV = 240, V = pts.map(v => new THREE.Vector3(...v)), R = [];

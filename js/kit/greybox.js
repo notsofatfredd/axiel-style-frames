@@ -9,6 +9,7 @@ import { plots, LAYOUT, FB } from './city.js';
 import { CLIFF, LINES } from './strata.js';
 import { WALL } from './paperwall.js';
 import { makeCore, CORE } from './livingcore.js';
+import { beat, scrub } from '../timeline.js';
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -23,11 +24,13 @@ export const TIMELINE = [
 ];
 export const VH = { desk: 1200, phone: 900 };   // §4.2 scroll length
 export const SCROLL_VH_PER_S = 30;              // PROPOSED steady scroll for the animatic: desktop 40 s, phone 30 s
-export const T = { crack: 0.05, tear: 0.07, open: 0.08, walk0: 0.24, walk1: 0.37, fold: 0.40, throw: 0.42, hit: 0.46, heal0: 0.94, heal1: 0.96, seal: 0.98 };
+// G5: beat times come from the timing table (js/timeline.js), not from here
+const B = (id) => beat(id);
+export const T = { crack: B('crack').p0, tear: B('tear').p0, open: B('tear').p1, walk0: B('walk').p0, walk1: B('walk').p1, fold: B('fold').p0, throw: B('throw').p0, hit: B('dart').p1, heal0: B('heal').p0, heal1: B('heal').p1, seal: B('seal').p0 };
 
 export function tearOpen(p) {
   if (p < T.crack) return 0;
-  if (p < T.tear) return 0.3 * (p - T.crack) / (T.tear - T.crack);
+  if (p < T.tear) return 0.3 * scrub('crack', p);   // §5.3 crack eases EASE_DEPART
   if (p < T.open) return 0.3 + 0.7 * (p - T.tear) / (T.open - T.tear);
   if (p < T.heal0) return 1;
   if (p < T.heal1) return 1 - (p - T.heal0) / (T.heal1 - T.heal0);
@@ -180,24 +183,26 @@ export function clearance(phone, W, step = 0.0005) {
   return { step, min, intersections: inter, corridor: corr, crossings, lookGap, pass: corridorOk && interOk && crossOk && lookGap.d > 1 };
 }
 
-/* pacing at the PROPOSED steady scroll: per segment length, time, speed, peak turn rate and FOV rate */
-export function pacing(phone, sub = 200) {
+/* pacing at the PROPOSED steady scroll: per segment length, time, average and peak speed, peak turn rate and FOV
+ * rate. remap: a camera timing mode from timeline.js (G5); the speed change at each key is measured frame to frame */
+export function pacing(phone, sub = 200, remap = (p) => p) {
   const vh = phone ? VH.phone : VH.desk, rows = [];
   for (let i = 0; i < KEYS.length - 1; i++) {
-    const A = KEYS[i], B = KEYS[i + 1], dur = (B.p - A.p) * vh / SCROLL_VH_PER_S;
-    let len = 0, turn = 0, prev = null;
+    const A = KEYS[i], B = KEYS[i + 1], dur = (B.p - A.p) * vh / SCROLL_VH_PER_S, dt = dur / sub;
+    let len = 0, turn = 0, peak = 0, v0 = 0, v1 = 0, prev = null;
     for (let k = 0; k <= sub; k++) {
-      const p = A.p + (B.p - A.p) * k / sub, s = cameraAt(Math.min(p, B.p - 1e-9 * (k === sub)), phone);
+      const p = A.p + (B.p - A.p) * k / sub, s = cameraAt(remap(Math.min(p, B.p - 1e-9 * (k === sub)), phone), phone);
       const dir = s.look.clone().sub(s.pos).normalize();
-      if (prev) { len += s.pos.distanceTo(prev.pos); turn = Math.max(turn, prev.dir.angleTo(dir) * 180 / Math.PI / (dur / sub)); }
+      if (prev) { const d = s.pos.distanceTo(prev.pos), v = d / dt; len += d; peak = Math.max(peak, v); if (k === 1) v0 = v; v1 = v; turn = Math.max(turn, prev.dir.angleTo(dir) * 180 / Math.PI / dt); }
       prev = { pos: s.pos, dir };
     }
-    rows.push({ seg: `${A.key}→${B.key}`, p0: A.p, p1: B.p, dur, len, speed: dur > 0 ? len / dur : 0, turn, fovRate: dur > 0 ? Math.abs(B.fov - A.fov) / dur : 0 });
+    rows.push({ seg: `${A.key}→${B.key}`, p0: A.p, p1: B.p, dur, len, speed: dur > 0 ? len / dur : 0, peak, v0, v1, turn, fovRate: dur > 0 ? Math.abs(B.fov - A.fov) / dur : 0 });
   }
   rows.forEach((r, i) => {
-    const pr = rows[i - 1];
-    r.jump = pr && pr.speed > 0.5 && r.speed > 0.5 ? Math.max(r.speed / pr.speed, pr.speed / r.speed) : 1;
-    r.flag = [r.turn > 120 ? 'fast turn' : '', r.jump > 3 ? `speed ×${r.jump.toFixed(1)} at the key` : '', r.speed > 25 ? 'fast move' : ''].filter(Boolean).join(', ');
+    const pr = rows[i - 1], a = pr ? pr.v1 : 0, b = r.v0;
+    r.jump = pr && a > 0.5 && b > 0.5 ? Math.max(a / b, b / a) : 1;
+    r.dead = pr && ((a > 2 && b < 0.05) || (a < 0.05 && b > 2)) ? (b < 0.05 ? 'stops dead at the key' : 'starts dead at the key') : '';
+    r.flag = [r.turn > 120 ? 'fast turn' : '', r.jump > 3 ? `speed ×${r.jump.toFixed(1)} at the key` : '', r.dead, r.peak > 25 ? 'fast move' : ''].filter(Boolean).join(', ');
   });
   return rows;
 }
