@@ -72,7 +72,7 @@ export function makeDart(o = {}) {
   // §3.1 / §3.2 material: --paper with --bone where a facet turns under; gilding lerps the paper to --atlas-gold-hot
   // and keeps the --signal-red ink. The back of the sheet is the map's blank --bone back.
   const mat = MAT.paper({
-    k: 'paper', bump: 0.002,
+    k: 'paper', bump: 0.002, thin: 0.45,   // held paper glows through when the lantern is behind it (PROPOSED 0.45)
     uniforms: { uGold },
     pars: 'uniform float uGold; float dInk;',
     bloomPart: true,

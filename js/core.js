@@ -77,7 +77,18 @@ vec3 perturbH(vec3 sp, vec3 sn, float h, float s){
  *   o.varyings / o.vertex : extra varyings and vertex GLSL (has `position`, `objectNormal`, `mm` = model × instance matrix)
  *   o.pars   : extra GLSL (uniform decls, functions, globals)
  *   o.uniforms : extra uniforms
+ *   o.thin   : thin-sheet translucency (0..1): a sheet lit from behind glows through on the side you see.
+ *              Unshadowed (the sheet would shadow itself), so keep it to small held paper: the map, the dart.
  */
+const thinSheet = (k) => {
+  const one = (kind, arr) => `
+    #if NUM_${kind}_LIGHTS > 0
+      for (int i = 0; i < NUM_${kind}_LIGHTS; i++) { IncidentLight tl;
+        get${kind === 'DIR' ? 'Directional' : kind === 'SPOT' ? 'Spot' : 'Point'}LightInfo(${arr}[i], ${kind === 'DIR' ? '' : 'geometryPosition, '}tl);
+        reflectedLight.directDiffuse += ${k.toFixed(3)} * saturate(-dot(geometryNormal, tl.direction)) * tl.color * BRDF_Lambert(material.diffuseColor); }
+    #endif`;
+  return one('SPOT', 'spotLights') + one('POINT', 'pointLights') + one('DIR', 'directionalLights');
+};
 /* Shared switch for the selective-bloom source pass: materials flagged userData.bloomPart
    output only their bloom emissive (bloomE) while it is 1. */
 export const BLOOM_ONLY = { value: 0 };
@@ -122,6 +133,8 @@ export function detailMat(params, o = {}) {
         normal = perturbH(-vViewPosition, normal, dH, ${(o.bump ?? 0.02).toFixed(4)});`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         { vec3 wp = vWPos; vec3 wn = normalize(vWNrm); float h = dH; ${o.emis ?? ''} }`)
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        ${o.thin ? thinSheet(o.thin) : ''}`)
       .replace('#include <opaque_fragment>', `#include <opaque_fragment>
         if (uBloomOnly > 0.5) gl_FragColor = vec4(bloomE, 1.0);`);
   };

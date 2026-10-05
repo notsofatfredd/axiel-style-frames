@@ -455,9 +455,9 @@ export async function makeCartographer(o = {}) {
   // accordion map in the right hand: attach (oriented toward the reader) + 4 folds about local y
   const mapC = mapCanvas();
   const mapT = canvasTex(mapC, true);
-  const front = MAT.paper({ k: 'paper', bump: 0.002, side: THREE.FrontSide });
+  const front = MAT.paper({ k: 'paper', bump: 0.002, thin: 0.45, side: THREE.FrontSide });
   front.map = mapT;
-  const back = MAT.paper({ k: 'bone', bump: 0.002, side: THREE.FrontSide });
+  const back = MAT.paper({ k: 'bone', bump: 0.002, thin: 0.45, side: THREE.FrontSide });
   const attach = joint(J.handR, 'mapAttach', [0, 0, 0]);
   const mapOff = new THREE.Group(); attach.add(mapOff);
   const folds = [], mapMeshes = [];
