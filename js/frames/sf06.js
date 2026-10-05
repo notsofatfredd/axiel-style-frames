@@ -4,14 +4,14 @@ import { PI, leaderLabel } from './util.js';
 
 /* AMOS freeze labels (§5.3 D4): each hangs on one frozen drop. Values are the protocol's D4 set.
    Anchors sit inside the K16 frustum (camera x −2): right-hand drops at x ≤ 8.5 (screen x ≈ 1170 of 1440) so the leader hangs outboard on screen. */
-const LABELS = [
+export const LABELS = [
   { t: 'LCP 1.2s', at: [-6.5, 15.5, -32], off: [-70, -40] },
   { t: 'CLS 0.02', at: [-9.0, 8.5, -34], off: [-70, 30] },
   { t: 'A11Y 98', at: [7.0, 16.5, -31], off: [70, -40] },
   { t: 'NAV PASS', at: [8.5, 9.5, -35], off: [70, 20] },
   { t: 'ERRORS 0', at: [7.5, 3.6, -33], off: [80, 30] },
 ];
-const SLANT = 12 * DEG; // rain leans toward the camera (+z)
+export const SLANT = 12 * DEG; // rain leans toward the camera (+z)
 
 function frozenRain(n, seed) {
   const r = rng(seed);
@@ -33,7 +33,7 @@ function frozenRain(n, seed) {
 }
 
 /* beads sitting on the repaired window glass and the gold-leaf nameplate */
-function beads(seed, tier) {
+export function beads(seed, tier) {
   const r = rng(seed);
   const geo = new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2); // dome facing +z
   const mat = new THREE.MeshPhysicalMaterial({ color: col('bone'), roughness: 0.03, metalness: 0, transparent: true, opacity: 0.5,

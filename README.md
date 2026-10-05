@@ -1,6 +1,6 @@
-# AXIEL · The Gallery Beneath (G2 style frames, G3 hero objects, G4 camera, G5 motion)
+# AXIEL · The Gallery Beneath (G2 style frames, G3 hero objects, G4 camera, G5 motion, G6 prototype)
 
-Code-rendered style frames SF-01 to SF-08 (plus SF-07b) and the G3 hero objects for the axiel.co.za homepage, "The Gallery Beneath". This README is the **frame render log** for the G2 checklist (protocol v1.4, §2.5) and the object log for G3, the camera log for G4 and the timing log for G5.
+Code-rendered style frames SF-01 to SF-08 (plus SF-07b) and the G3 hero objects for the axiel.co.za homepage, "The Gallery Beneath". This README is the **frame render log** for the G2 checklist (protocol v1.4, §2.5) and the object log for G3, the camera log for G4, the timing log for G5 and the prototype log for G6.
 
 Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3), light and material (§2.3) and palette tokens (§2.1), built on shared world kits (strata, city, Cartographer, Living Core, seal, paper wall). Nothing is colour-corrected afterwards. Signed decisions used: G1.1 and G2-1 to G2-9.
 
@@ -12,7 +12,8 @@ Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3
 | G3 hero objects | **Self-reviewed (2 passes), awaiting CD signature.** Every object inside budget, all eight Cartographer animations and the dart built. Human blockers listed under [G3](#g3-hero-objects). |
 | G4 camera path and animatic | **Self-reviewed (2 passes), awaiting CD signature.** Clearance and legibility pass on desktop and phone; storyboard and 1080p animatic in the gallery. Human blockers listed under [G4](#g4-camera-path-and-animatic). |
 | G5 motion lock | **Self-reviewed (2 passes), awaiting CD signature.** All timing checks, the seven carriers and the reverse-scroll test pass on both viewports in every camera mode. Human blockers listed under [G5](#g5-motion-lock). |
-| G6 to G11 | Not started. |
+| G6 technical prototype | **Built, in CI review.** AMOS first, on the production stack. See [G6](#g6-technical-prototype-amos). |
+| G7 to G11 | Not started. |
 
 No gate is signed by the build itself. "Self-reviewed" means every checklist item was checked against the renders, not that it is approved.
 
@@ -22,6 +23,7 @@ No gate is signed by the build itself. "Self-reviewed" means every checklist ite
 - **Live harness** (renders 3D on your device at 2560×1440, heavy): https://notsofatfredd.github.io/axiel-style-frames/
 - **Cartographer page** (G2-6 silhouette test, live): https://notsofatfredd.github.io/axiel-style-frames/cartographer.html
 - **Objects page** (G3 budgets and turnarounds, live, heavy): https://notsofatfredd.github.io/axiel-style-frames/objects.html
+- **G6 prototype** (AMOS on the production stack, live, heavy; `?hud=1`, `?bench=1`, `?tier=mid`): https://notsofatfredd.github.io/axiel-style-frames/proto/
 
 All of them update only after a full render run passes (see below), so they always show the last good set. A failed frame also holds back harness changes on the link until a run passes. The pages need WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
 
@@ -462,6 +464,44 @@ Changed at G5 (PROPOSED): new hold key **K9h** at 0.42 (the camera holds on the 
 
 **G5 blockers that need a person:** timing table approval against the animatic, the camera mode choice, the crack ease, the generic audit.
 
+## G6 technical prototype (AMOS)
+
+`site/` is the production stack (§6.1): Next.js 16 App Router as a static export, React Three Fiber, Lenis smoothing into GSAP ScrollTrigger, one zustand store holding p. It builds the AMOS scene first, as §6 asks, from the same world kits as the frames (`js/` is synced in at build time, never forked). The `proto` CI job builds the export, serves it under the Pages path and runs `tools/proto.mjs`; deploy publishes it at **https://notsofatfredd.github.io/axiel-style-frames/proto/** (noindex, review only).
+
+**Plan critique (written before the build, kept here so the review can check it was followed):**
+- *Riskiest part:* the rain. 8,000 GPU drops reading an integrity mask, beading on working elements and soaking into the fault, under a planar reflection. Built as one instanced draw with all motion in the vertex shader as a pure function of time and p, so it scrubs backwards exactly and freezes by stopping one uniform.
+- *The cloud cannot measure fps.* The runners render on SwiftShader (CPU). CI proves behaviour (mount, freeze, labels, reverse scroll, no errors); the §6 fps targets need a real laptop and phone. A scripted `?bench=1` run makes that a two-minute human job with a pass rule.
+- *One camera, no scene owns it:* the camera is placed on the G5 path at the global p every frame (`js/camera.js` + `js/timeline.js` CAMERA_MODES), so the K14 → K16 arc is the signed path, not a copy.
+- *DOM for type:* copy, counter and freeze labels are DOM over the canvas (crisp at any DPR, readable by assistive tech); the canvas never draws UI text.
+- *What could fail the gate:* fps on a mid phone with the planar reflection. Mid drops the mirror and runs 2,000 drops (§10.1); the pre-baked fallback is held in reserve and logged in `docs/ceilings.md` if needed.
+
+**Checklist (protocol G6):**
+
+| Item | Status |
+|---|---|
+| Stack per §6.1 | **Built.** Next.js static export, R3F, drei, Lenis, GSAP ScrollTrigger, zustand, three 0.169 |
+| AMOS first: planar reflection through the water film | **Built.** High: half-resolution mirror under a noisy-edged film with meniscus rim and Schlick fresnel; Mid: environment tint (§10.1) |
+| GPU rain reading the integrity mask | **Built.** 8,000 drops High, 2,000 Mid, one instanced draw; beads and rolls on working elements, soaks and stains red on the fault, registered per element as the beads row scrubs |
+| K14 → K16 arc | **Built.** The G5 camera path at the global p |
+| Freeze on idle (400 ms) with labels | **Built.** The five D4 readings typed onto the nearest falling drops, leaders and dots as SF-06; scrolling releases them |
+| Reverse scroll | Checked in CI (rain, registration and film identical down and up) |
+| fps: 60 desktop, 45 mobile | **Needs a device.** Run `?bench=1` on a laptop and a phone; SwiftShader figures in the gallery are a reference only |
+| Hosting decision | **Needs a person.** The Pages `/proto/` link is review only |
+| Generic audit | Needs a person |
+
+CI results, screenshots and the SwiftShader reference numbers are in the [gallery G6 section](https://notsofatfredd.github.io/axiel-style-frames/gallery/#proto). Decisions the build made are in [`docs/proposals.md`](docs/proposals.md) (P6-1 to P6-13); known limits in [`docs/ceilings.md`](docs/ceilings.md).
+
+<!-- g6-review -->
+**G6 self-review:** pending the first CI run of the prototype.
+<!-- /g6-review -->
+
+**For the CD (G6):**
+1. **Rain direction (P6-1).** §3.2 slants the rain toward the +z façades (away from the camera); SF-06 leans it toward the camera. The prototype follows §3.2. Pick one and the other is updated.
+2. **Freeze feel.** Scroll to the rain, stop, and watch the labels type onto the drops. Is 400 ms idle right, and does the un-type at 15 ms per char (P6-4) feel like a release?
+3. **Grain as a DOM layer (P6-2)** instead of a post pass.
+
+**G6 blockers that need a person:** device fps (laptop and phone, `?bench=1`, Copy the result into an issue or message), freeze feel, the hosting decision, the generic audit.
+
 ## Files
 
 ```
@@ -491,7 +531,11 @@ tools/carto.mjs         captures the Cartographer page, silhouette gate
 tools/objects.mjs       captures the objects page, budget gate
 tools/animatic.mjs      records the animatic: storyboard, MP4s, plot map, clearance.md, timing.md
 docs/clearance.md       G4 clearance report from the last animatic run
-tools/gallery.py        merges frames, Cartographer, objects and animatic into the Pages gallery
-.github/workflows/render.yml  the render, carto, objects, animatic, collect and deploy jobs
+tools/proto.mjs         G6 prototype checks in headless Chromium: mount, freeze, labels, reverse scroll, screenshots
+docs/proposals.md       G6 PROPOSED decisions (P6-1 to P6-13)
+docs/ceilings.md        known limits, logged as the protocol asks
+tools/gallery.py        merges frames, Cartographer, objects, animatic and prototype checks into the Pages gallery
+.github/workflows/render.yml  the render, carto, objects, animatic, proto, collect and deploy jobs
+site/                   G6 Next.js app (static export): app/, components/ (camera, scenes, overlay), lib/, shaders/
 assets/                 approved raster lockup and symbol
 ```

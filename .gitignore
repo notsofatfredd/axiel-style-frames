@@ -7,4 +7,6 @@ docs/*
 *.png
 !assets/*.png
 !docs/clearance.md
+!docs/proposals.md
+!docs/ceilings.md
 __pycache__/

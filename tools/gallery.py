@@ -1,6 +1,7 @@
 """Build the review gallery from the per-frame render artifacts.
 
-Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir] [animatic_dir]
+Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir] [animatic_dir] [proto_dir]
+  proto_dir: optional, the G6 prototype checks and screenshots from tools/proto.mjs (PNGs + proto.json)
   animatic_dir: optional, the G4 grey-box animatic from tools/animatic.mjs (MP4s, storyboard JPEGs, plot map, anim.json)
   parts_dir: one folder per frame job, each with PNGs and render-log.json (from tools/render.mjs)
   carto_dir: optional, the Cartographer silhouette test from tools/carto.mjs (PNGs + carto.json)
@@ -23,7 +24,7 @@ SCENE = {'SF-01': 'Surface', 'SF-02': 'Fall', 'SF-03': 'ATLAS', 'SF-04': 'INDEX'
 VARIANT = [('high', 'desktop'), ('mid', 'desktop'), ('high', 'phone'), ('mid', 'phone')]
 
 
-def main(parts, out, run, carto=None, objects=None, animatic=None):
+def main(parts, out, run, carto=None, objects=None, animatic=None, proto=None):
     parts, out = Path(parts), Path(out)
     (out / 'full').mkdir(parents=True, exist_ok=True)
     (out / 'thumbs').mkdir(exist_ok=True)
@@ -147,6 +148,26 @@ def main(parts, out, run, carto=None, objects=None, animatic=None):
                      f'<h3>Legibility at the key (cap px; min 18 desktop, 14 phone)</h3><div class="tbl"><table><thead><tr><th>Text</th><th>Key</th><th>1440×900</th><th>390×844</th></tr></thead><tbody>{leg}</tbody></table></div>'
                      f'<h3>Pacing flags</h3><div class="tbl"><table><thead><tr><th>Viewport</th><th>Segment</th><th>Time</th><th>Units/s</th><th>Peak turn °/s</th><th>Flag</th></tr></thead><tbody>{flags or "<tr><td>none</td></tr>"}</tbody></table></div>'
                      f'<h3>Storyboard, desktop</h3><div class="shots">{board["desk"]}</div><h3>Storyboard, phone</h3><div class="shots">{board["phone"]}</div></section>')
+    # G6: technical prototype (AMOS), checks and screenshots from proto.json; the live build is served at ../proto/
+    proto_html = ''
+    pj = Path(proto) / 'proto.json' if proto else None
+    if pj and pj.exists():
+        pr = json.loads(pj.read_text(encoding='utf-8'))
+        shutil.copytree(proto, out / 'proto', dirs_exist_ok=True)
+        ok6 = '<span class="pass">PASS</span>' if pr.get('ok') else '<span class="bad">FAIL</span>'
+        body = ''
+        for r in pr.get('results', []):
+            rows = ''.join(f'<tr><td>{html.escape(c["check"])}</td><td class="{"pass" if c["pass"] else "bad"}">{"PASS" if c["pass"] else "FAIL"}</td><td>{html.escape(c["detail"])}</td></tr>' for c in r['checks'])
+            pf6 = r.get('perf') or {}
+            perf = (f'<p class="meta">SwiftShader (CPU) in the rain: {pf6["fps"]:.1f} fps, worst frame {pf6["worstMs"]:.0f} ms, {pf6.get("calls")} draw calls. '
+                    'A reference only: device fps is a human check.</p>') if pf6.get('fps') else ''
+            figs = ''.join(f'<figure class="{"phone" if r["id"] == "phone" else ""}"><a href="proto/{html.escape(f["file"])}"><img src="proto/{html.escape(f["file"])}" alt="{html.escape(f["cap"])}" loading="lazy"></a>'
+                           f'<figcaption><span>{html.escape(f["cap"])}</span></figcaption></figure>' for f in r.get('shots', []))
+            body += (f'<h3>{html.escape(r["label"])}</h3><div class="tbl"><table><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>{rows}</tbody></table></div>'
+                     f'{perf}<div class="shots">{figs}</div>')
+        proto_html = (f'<section id="proto"><h2><span>G6</span> Technical prototype: AMOS</h2><p class="meta">Next.js static export, R3F, Lenis, GSAP ScrollTrigger · checks {ok6} · '
+                      f'<a href="../proto/">open the prototype (renders on your device, heavy)</a> · <a href="../proto/?hud=1">with HUD</a> · <a href="../proto/?bench=1">fps bench</a> · '
+                      f'<a href="../proto/?tier=mid">force Mid</a> · <a href="proto/proto.md">proto.md</a></p>{body}</section>')
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -188,9 +209,9 @@ footer {{ padding-top: 32px; padding-bottom: 48px; font-size: 13px; color: var(-
 <h1><b>AXIEL</b> · Gate G2 style frames</h1>
 <p class="meta">{ok} of {len(log)} rendered · run {html.escape(str(run))} · {when}<br>
 Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <a href="../">live harness (renders on your device, heavy)</a></p>
-<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}{'<a href="#animatic">ANIMATIC</a>' if anim_html else ''}</nav>
+<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}{'<a href="#animatic">ANIMATIC</a>' if anim_html else ''}{'<a href="#proto">G6 PROTOTYPE</a>' if proto_html else ''}</nav>
 </header>
-<main>{''.join(cards)}{carto_html}{objects_html}{anim_html}</main>
+<main>{''.join(cards)}{carto_html}{objects_html}{anim_html}{proto_html}</main>
 <footer>Rendered by the Render frames workflow on GitHub Actions (software WebGL). Numbers are a headless check, not a visual review.</footer>
 </body></html>
 """
@@ -201,4 +222,5 @@ Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <
 
 if __name__ == '__main__':
     main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local', sys.argv[4] if len(sys.argv) > 4 else None,
-         sys.argv[5] if len(sys.argv) > 5 else None, sys.argv[6] if len(sys.argv) > 6 else None)
+         sys.argv[5] if len(sys.argv) > 5 else None, sys.argv[6] if len(sys.argv) > 6 else None,
+         sys.argv[7] if len(sys.argv) > 7 else None)

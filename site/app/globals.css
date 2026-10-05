@@ -1,0 +1,60 @@
+/* §2.1 tokens (the same values as js/core.js HEX) */
+:root {
+  --ink: #0B0B0C; --graphite: #1D1D1F; --stone: #6A675F; --bone: #D6D2C8; --paper: #F2EFE9;
+  --atlas-gold: #C9A35B; --atlas-gold-hot: #F0C878; --lantern: #E8A54B; --night: #0E1520; --rain: #8FA6B8;
+  --signal-red: #C2412D; --signal-pass: #9FC2A0;
+  --gutter: 86px; --margin: 64px;
+}
+@media (max-width: 760px) { :root { --gutter: 24px; --margin: 24px; } }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--night); color: var(--bone); }
+body { font-family: Montserrat, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* §6.2.1 scroll length */
+.spacer { height: 1200vh; }
+@media (max-width: 760px) { .spacer { height: 900vh; } }
+
+/* 2% paper-fibre grain, overlay blend (js/app.js GrainShader), 1024 px tile at the 1440 frame = 576 CSS px */
+.grain { position: fixed; inset: 0; pointer-events: none; background-size: 576px 576px; mix-blend-mode: overlay; opacity: 0.02; z-index: 2; }
+
+/* scene copy (core.js sceneCopy): name 12 px, line 300 weight 30 / 40 px, bottom-left column */
+.scene-copy { position: fixed; left: var(--gutter); bottom: 96px; max-width: 760px; z-index: 3; pointer-events: none;
+  text-shadow: 0 0 14px rgba(11, 11, 12, 0.6); }
+.scene-copy__name { font-weight: 400; font-size: 12px; letter-spacing: 0.08em; margin-bottom: 30px; }
+.scene-copy__line { margin: 0; font-weight: 300; font-size: 30px; line-height: 40px; letter-spacing: 0.08em; color: var(--bone); }
+@media (max-width: 760px) {
+  .scene-copy { bottom: 72px; right: 24px; }
+  .scene-copy__name { margin-bottom: 20px; }
+  .scene-copy__line { font-size: 22px; line-height: 30px; }
+}
+
+/* §6.2.8 scene counter (core.js sceneCounter): mono 11 px, 0.12 em, rotated at the left edge; top-left on phone */
+.scene-counter { position: fixed; left: 34px; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); z-index: 3;
+  font: 400 11px/1 "JetBrains Mono", monospace; letter-spacing: 0.12em; opacity: 0.78; white-space: nowrap; pointer-events: none; }
+@media (max-width: 760px) { .scene-counter { left: 24px; top: 40px; transform: translateY(-50%); } }
+
+/* D4 freeze labels (frames/util.js leaderLabel): --signal-pass mono 25 px 500, tracking 0.06 em, leader 1.2 px, dot 2.6 */
+.drop-labels { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+.drop-labels__lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.drop-labels__lines g { stroke: var(--signal-pass); fill: var(--signal-pass); stroke-width: 1.2; opacity: 0.92; }
+.drop-label { position: absolute; transform: translateY(-50%); font: 500 25px/1 "JetBrains Mono", monospace; letter-spacing: 0.06em;
+  color: var(--signal-pass); opacity: 0.92; white-space: pre; text-shadow: 0 0 8px rgba(11, 11, 12, 0.7); }
+.drop-label--l { transform: translate(-100%, -50%); }
+
+/* prototype furniture (not part of the design) */
+.proto-tag { position: fixed; right: 16px; top: 14px; z-index: 4; font: 400 10px/1 "JetBrains Mono", monospace; letter-spacing: 0.12em;
+  color: var(--stone); pointer-events: none; }
+.hud { position: fixed; right: 16px; top: 34px; z-index: 4; margin: 0; padding: 8px 10px; background: rgba(11, 11, 12, 0.72);
+  font: 400 11px/1.5 "JetBrains Mono", monospace; color: var(--bone); pointer-events: none; }
+.bench { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); z-index: 5; width: min(680px, calc(100vw - 32px));
+  padding: 12px 14px; background: rgba(11, 11, 12, 0.88); font: 400 11px/1.5 "JetBrains Mono", monospace; color: var(--bone); }
+.bench__head { color: var(--stone); letter-spacing: 0.12em; }
+.bench__pass { color: var(--signal-pass); margin: 6px 0; }
+.bench__fail { color: var(--signal-red); margin: 6px 0; }
+.bench table { width: 100%; border-collapse: collapse; }
+.bench th, .bench td { text-align: right; padding: 2px 4px; }
+.bench th:first-child, .bench td:first-child { text-align: left; }
+.bench__meta { color: var(--stone); margin: 6px 0; overflow-wrap: anywhere; }
+.bench button { font: inherit; background: var(--graphite); color: var(--bone); border: 1px solid var(--stone); padding: 4px 10px; cursor: pointer; }

@@ -1,0 +1,31 @@
+{
+  "name": "axiel-gallery-beneath",
+  "private": true,
+  "version": "0.6.0",
+  "description": "AXIEL homepage, The Gallery Beneath. G6 technical prototype (AMOS first).",
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "dev": "npm run sync && next dev",
+    "build": "npm run sync && next build",
+    "typecheck": "npm run sync && tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.1",
+    "gsap": "3.15.0",
+    "lenis": "1.3.26",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.169.0",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.169.0",
+    "raw-loader": "4.0.2",
+    "typescript": "5.9.3"
+  }
+}
