@@ -89,9 +89,11 @@ for (const vp of VPS) {
     for (const p of [...ps].reverse()) { await toP(p); const a = await amos(); up[p] = a && [a.intensity, a.reg, a.spread]; }
     const worst = Math.max(...ps.map((p) => (down[p] && up[p] ? Math.max(...down[p].map((v, i) => Math.abs(v - up[p][i]))) : Infinity)));
     check('Reverse scroll: rain, registration and film identical down and up', worst === 0, `${ps.length} positions 0.57 to 0.84, worst difference ${worst}`);
-    const at = (p) => down[p] ? down[p].map((v) => v.toFixed(2)).join(' / ') : 'n/a';
-    check('Rain ramps 0.64 to 0.68 and stops 0.80 to 0.82', down[0.63]?.[0] === 0 && down[0.69]?.[0] === 1 && down[0.79]?.[0] === 1 && down[0.82]?.[0] === 0,
-      `intensity / reg / spread at 0.63 ${at(0.63)}, 0.69 ${at(0.69)}, 0.79 ${at(0.79)}, 0.82 ${at(0.82)}`);
+    // sampled one step outside each ramp: toP lands on a whole scroll pixel, so p at a ramp's end can sit a hair inside it
+    const at = (p) => down[p] ? down[p].map((v) => v.toFixed(3)).join(' / ') : 'n/a';
+    const is = (p, v) => down[p] && near(down[p][0], v, 0.001);
+    check('Rain ramps 0.64 to 0.68 and stops 0.80 to 0.82', is(0.63, 0) && is(0.69, 1) && is(0.79, 1) && is(0.83, 0),
+      `intensity / reg / spread at 0.63 ${at(0.63)}, 0.69 ${at(0.69)}, 0.79 ${at(0.79)}, 0.83 ${at(0.83)}`);
 
     // screenshots while the rain moves (taken straight after the scroll, before the 400 ms freeze)
     for (const p of SHOTS) {
@@ -106,24 +108,32 @@ for (const vp of VPS) {
     await toP(0.675);   // just before the labels window, so nothing is frozen when the freeze test starts
     out.perf = { ...(await fps()), calls: (await st()).calls, tris: (await st()).tris };
 
-    // freeze (§5.2 idle-reactive, 400 ms) at K16, sampled every frame inside the page against the store's last scroll
-    // time (a sample can lag the freeze by a frame, never lead it)
+    // freeze (§5.2 idle-reactive, 400 ms) at K16. Every frame is sampled inside the page; idle is measured from the
+    // last scroll (the final lastMove). SwiftShader frames run 0.4 to 2 s, longer than the idle window itself, so the
+    // test is frame-rate independent: nothing frozen before 400 ms, and the 400 ms mark falls inside the frames just
+    // before the first frozen one (a sample can lag the freeze by a frame, never lead it).
     const fz = await page.evaluate(() => new Promise((r) => {
       const ax = window.__axiel, t0 = performance.now(), smp = [];
       ax.toP(0.79);
       const f = () => {
         const s = ax.state(), now = performance.now();
-        if (Math.abs(s.p - 0.79) < 0.002) smp.push({ idle: now - s.lastMove, frozen: s.frozen, now });
-        if ((s.frozen && smp.length) || now - t0 > 8000) r(smp); else requestAnimationFrame(f);
+        smp.push({ now, lastMove: s.lastMove, p: s.p, frozen: s.frozen });
+        if ((s.frozen && Math.abs(s.p - 0.79) < 0.002) || now - t0 > 30000) r(smp); else requestAnimationFrame(f);
       };
       requestAnimationFrame(f);
     }));
-    const early = fz.filter((x) => x.frozen && x.idle < 400), first = fz.find((x) => x.frozen);
-    const gaps = fz.slice(1).map((x, i) => x.now - fz[i].now), maxGap = Math.max(0, ...gaps);
-    check('Not frozen while idle < 400 ms', early.length === 0 && fz.some((x) => !x.frozen), `${fz.filter((x) => !x.frozen).length} frames sampled unfrozen, last at ${(fz.filter((x) => !x.frozen).pop()?.idle ?? 0).toFixed(0)} ms idle`);
-    check('Frozen after 400 ms idle', !!first && first.idle >= 400 && first.idle <= 400 + 2 * maxGap + 50, first ? `first seen frozen at ${first.idle.toFixed(0)} ms idle (frame up to ${maxGap.toFixed(0)} ms on SwiftShader)` : 'never froze');
-    const t1 = await amos().then((a) => a.time); await page.waitForTimeout(300); const t2 = await amos().then((a) => a.time);
-    check('Rain time stops while frozen', t1 === t2, `shader time ${t1.toFixed(3)} → ${t2.toFixed(3)}`);
+    const L = fz.length ? fz[fz.length - 1].lastMove : 0;
+    for (const x of fz) x.idle = x.now - L;
+    const fi = fz.findIndex((x) => x.frozen), first = fz[fi];
+    const early = fz.filter((x) => x.frozen && x.idle < 400);
+    const pre = fi > 0 ? fz.slice(Math.max(0, fi - 2), fi) : [];
+    const gap = fi > 0 ? first.now - fz[fi - 1].now : 0;
+    check('Not frozen while idle < 400 ms', early.length === 0 && fi > 0 && !fz[fi - 1].frozen,
+      `${fi < 0 ? fz.length : fi} frames unfrozen first, the last at ${(fi > 0 ? fz[fi - 1].idle : 0).toFixed(0)} ms idle; frozen frames under 400 ms: ${early.length}`);
+    check('Frozen after 400 ms idle', !!first && first.idle >= 400 && pre.some((x) => x.idle < 400 + 50),
+      first ? `first frozen frame at ${first.idle.toFixed(0)} ms idle; the frame before it at ${fz[fi - 1]?.idle.toFixed(0)} ms (SwiftShader frame ${gap.toFixed(0)} ms)` : 'never froze');
+    const t1 = await amos().then((a) => a.time); await frames(3); const t2 = await amos().then((a) => a.time);
+    check('Rain time stops while frozen', t1 === t2, `shader time ${t1.toFixed(3)} → ${t2.toFixed(3)} over 3 frames`);
 
     // D4 labels typed onto frozen drops
     const labs = (await st()).labels;
@@ -145,8 +155,8 @@ for (const vp of VPS) {
     check('Scrolling releases the freeze and clears the labels', released, '');
     const untyped = await waitFor(() => [...document.querySelectorAll('.drop-label')].every((e) => !e.textContent), null, 3000);
     check('Labels type back out', untyped, '');
-    const t3 = await amos().then((a) => a.time); await page.waitForTimeout(300); const t4 = await amos().then((a) => a.time);
-    check('Rain moves again', t4 > t3, `shader time ${t3.toFixed(3)} → ${t4.toFixed(3)}`);
+    const t3 = await amos().then((a) => a.time); await frames(3); const t4 = await amos().then((a) => a.time);
+    check('Rain moves again', t4 > t3, `shader time ${t3.toFixed(3)} → ${t4.toFixed(3)} over 3 frames`);
     // no freeze outside the labels window
     await toP(0.62);
     await page.waitForTimeout(900);
