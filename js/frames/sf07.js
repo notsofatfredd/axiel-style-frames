@@ -20,7 +20,7 @@ export default {
     'Share card in the window: the real title and description, with the AXIEL symbol standing in for the og:image (cap 0.25).',
     'Description highlighted in --atlas-gold-hot.',
     'The façade still wet from the AMOS rain (continuity from SF-06).',
-    'Cartographer at (−1.5, 0, −33), out of frame left, beam on the window.',
+    'Cartographer at (−3.5, 0, −32.5), out of frame left, beam on the window (at (−1.5, 0, −33) the lantern showed in the bottom-left corner once K17 looked lower).',
     'Phone key: K17 backed off along its axis to distance 14.5, camera (6.37, 4.81, −24.75).',
     'Desktop key: K17 looks at (4, 5.2, −39), not (4, 6, −39), so the 4.2 × 1.55 nameplate sits whole above the frame edge (bottom ≈ 756 of 810; at y 6 the email line was cut).',
   ],
@@ -45,7 +45,7 @@ export default {
     scene.add(makeCity({ tier, lit: 0.55, wet: 1 }));
     scene.add(await makeFaultBuilding({ state: 'repaired', wet: true, cardGlow: 0.26, hiGlow: 1.0 }));
     const win = [(FB.win.x0 + FB.win.x1) / 2, (FB.win.y0 + FB.win.y1) / 2, FB.z];
-    await placeCartographer(scene, [-1.5, 0, -33], [win[0], win[2]], win, { shadowMap: tier === 'mid' ? 1024 : 2048, aim: { intensity: 340 } });
+    await placeCartographer(scene, [-3.5, 0, -32.5], [win[0], win[2]], win, { shadowMap: tier === 'mid' ? 1024 : 2048, aim: { intensity: 340 } });
     const camera = vp.phone
       ? makeCamera(54, [6.37, 4.81, -24.75], [4, 6, -39])
       : makeCamera(54, [6, 5, -27], [4, 5.2, -39]); // look lowered from y 6: the larger nameplate's bottom edge fell at y ≈ 810 of 810
