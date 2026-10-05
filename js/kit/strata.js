@@ -129,11 +129,15 @@ float strataH(){
   float d1 = abs(n - 0.67) / gl, d2 = abs(n - 0.46) / gl;
   float w = 0.006 + 0.014 * vnoise(p * 0.6 + 5.);
   float aa = max(fwidth(d1), 1e-4);
-  float v1 = 1. - smoothstep(w - aa, w + aa, d1), v2 = 1. - smoothstep(w * 0.45 - aa, w * 0.45 + aa, d2);
-  // breaks: the leaf is laid in runs, not continuous loops
-  float runs = smoothstep(0.35, 0.6, vnoise(p * 0.07 + 3.)) * smoothstep(0.22, 0.42, vnoise(p * 0.8 + 11.));
+  // pixel coverage: once a vein is thinner than a pixel it dims with its width instead of drawing a full
+  // 1 px gold line (seen whole, the cliff read as a gold maze)
+  float v1 = (1. - smoothstep(w - aa, w + aa, d1)) * min(1., w / aa), v2 = (1. - smoothstep(w * 0.45 - aa, w * 0.45 + aa, d2)) * min(1., w * 0.45 / aa);
+  // breaks: the leaf is laid in runs, not continuous loops; and only in the beds that carry it (the three
+  // carved-line beds, the bed under line 2, and one deep bed), fading out short of the bedding planes
+  float bed = (L == 1 || L == 3 || L == 4 || L == 7 || L == 10) ? smoothstep(0.05, 0.4, fBand) : 0.;
+  float runs = bed * smoothstep(0.35, 0.6, vnoise(p * 0.07 + 3.)) * smoothstep(0.22, 0.42, vnoise(p * 0.8 + 11.));
   fV = max(v1, v2 * smoothstep(0.3, 0.5, vnoise(p * 0.5 + 21.))) * runs;
-  fVc = (1. - smoothstep(0., w * 0.6 + aa, d1)) * runs;   // the emissive core of the main vein only
+  fVc = (1. - smoothstep(0., w * 0.6 + aa, d1)) * min(1., w * 0.6 / aa) * runs;   // the emissive core of the main vein only
   fD = dressM(p);
   fV *= 1. - fD; fVc *= 1. - fD;
   fM = carveM(p);                        // soft (beveled) carve mask: depth from fM, gold floor from fMa

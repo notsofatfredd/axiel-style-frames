@@ -1,14 +1,15 @@
 /*
  * Paper wall (§3.2, Surface → Seal): 120 × 320 at z = 0, centred (0, 150, 0), front face +z.
- * The tear (radius 3 at the origin) is shader displacement + an alpha mask driven by uOpen 0..1,
- * so one mesh plays the SF-01 crack (0), the opening and the SF-07b hole (1). The back face is the
+ * The tear is shader displacement + an alpha mask driven by uOpen 0..1, so one mesh plays the whole
+ * film: closed (0), the crack running along one jagged line (to 0.3), then the paper tearing open along
+ * it into a lens about 5 wide and 8.4 tall (1), lip curling into the world. The back face is the
  * horizon from inside the world; SF-07b prints the ranked result on it.
  * Geometry is polar around the tear: dense rings out to r 7.5 for the lip, then rings stretched to the
  * sheet edge, so the triangles sit where the displacement is (§3.2 budget 20k).
  */
 import { THREE, MAT } from '../core.js';
 
-export const WALL = { w: 120, h: 320, cy: 150, tearR: 3 };
+export const WALL = { w: 120, h: 320, cy: 150, tearHL: 4.2, tearHW: 2.4 };   // tear half-length (along the crack) and half-width when fully open
 const SEG = 128, RINGS = 72, NEAR = 7.5, NEAR_T = 0.6;
 
 // distance from the origin to the sheet edge along angle a
@@ -45,10 +46,20 @@ export function wallGeometry() {
   return g;
 }
 
-// the tear outline: the SF-07b shape (3-lobe + 7-lobe wobble) plus a fibre jag
+// the tear: a crack that runs first, then paper torn open along it (each side jagged on its own)
 const TEAR_GLSL = /* glsl */`
   uniform float uOpen; varying vec2 vLoc;
-  float tearR(float a) { return ${WALL.tearR.toFixed(1)} * (1.0 + 0.06 * sin(a * 3.0 + 1.0) + 0.04 * sin(a * 7.0 + 2.0) + 0.012 * sin(a * 41.0)); }`;
+  // centre line of the crack: x offset at height y, one jagged line
+  float crackX(float y) { return 0.22 * sin(1.7 * y + 1.0) + 0.11 * sin(4.3 * y + 2.0) + 0.045 * sin(11.0 * y + 0.5) + 0.02 * sin(29.0 * y); }
+  // approximate signed distance to the tear outline (< 0 is torn away)
+  float tearD(vec2 p, float u) {
+    float hl = ${WALL.tearHL.toFixed(2)} * smoothstep(0.0, 0.3, u);                                   // the crack runs
+    float hw = 0.03 * smoothstep(0.0, 0.08, u) + ${WALL.tearHW.toFixed(2)} * pow(smoothstep(0.25, 1.0, u), 1.3);  // then tears open
+    float dx = p.x - crackX(p.y), sd = sign(dx);
+    float ty = clamp(p.y / max(hl, 1e-3), -1.0, 1.0);
+    float jag = 1.0 + 0.2 * sin(7.3 * p.y + 1.0 + 2.0 * sd) + 0.1 * sin(17.1 * p.y + 2.0 + 3.0 * sd) + 0.045 * sin(43.0 * p.y + sd);
+    return max(abs(dx) - hw * pow(max(1.0 - ty * ty, 0.0), 0.6) * jag, abs(p.y) - hl);
+  }`;
 
 export function makePaperWall(o = {}) {
   const U = { uOpen: { value: o.open ?? 0 } };
@@ -61,14 +72,16 @@ export function makePaperWall(o = {}) {
       .replace('#include <common>', `#include <common>\n${TEAR_GLSL}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vLoc = position.xy;
-        { float r = length(position.xy), R = tearR(atan(position.y, position.x)) * uOpen;
-          float w = 1.0 - smoothstep(0.0, 2.2, r - R); w *= w * uOpen;
-          transformed.z -= 1.4 * w;                                       // the lip curls into the world (−z)
-          transformed.xy += position.xy / max(r, 1e-3) * 0.35 * w;        // and peels back from the hole
+        { float w = 1.0 - smoothstep(0.0, 2.2, max(tearD(position.xy, uOpen), 0.0)); w *= w * smoothstep(0.2, 1.0, uOpen);
+          vec2 away = normalize(vec2(position.x - crackX(position.y), 0.25 * position.y) + vec2(1e-4, 0.0));
+          transformed.z -= 1.4 * w;                                       // the lip curls into the world (−z) once it tears open
+          transformed.xy += away * 0.35 * w;                              // and peels back from the crack
         }`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>\n${TEAR_GLSL}`)
-      .replace('#include <clipping_planes_fragment>', `if (length(vLoc) < tearR(atan(vLoc.y, vLoc.x)) * uOpen) discard;\n#include <clipping_planes_fragment>`);
+      .replace('#include <clipping_planes_fragment>', `float tD = tearD(vLoc, uOpen); if (tD < 0.0) discard;\n#include <clipping_planes_fragment>`)
+      // torn fibres: a thin, uneven paler rim along the edge
+      .replace('#include <roughnessmap_fragment>', `if (uOpen > 0.0) diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), 0.35 * (1.0 - smoothstep(0.0, 0.035 + 0.03 * sin(61.0 * vLoc.y + 13.0 * vLoc.x), tD)));\n#include <roughnessmap_fragment>`);
   };
   const mesh = new THREE.Mesh(wallGeometry(), mat);
   mesh.receiveShadow = true;

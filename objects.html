@@ -131,10 +131,10 @@ try {
     const n = count(wall);
     row('Paper wall', n.tris, 20000, 'tris', n.calls, 'one mesh for crack → hole: tear is shader displacement + alpha mask (uOpen)');
     turnaround('Paper wall · 120 × 320 · whole sheet', wall, { views: [['front', 0], ['¾', Math.PI / 4]], size: [300, 480], elev: 0 });
-    const tearRow = section('Paper wall · the tear (radius 3) as it opens');
+    const tearRow = section('Paper wall · the tear: the crack runs, then tears open');
     const s = studio(); s.add(wall);
     const box = new THREE.Box3(new THREE.Vector3(-6, -6, -2), new THREE.Vector3(6, 6, 1));
-    for (const [open, yaw, name] of [[0, 0, 'crack · open 0 · front'], [0.5, 0, 'open 0.5 · front'], [1, 0, 'open 1 · front'], [1, Math.PI * 0.42, 'open 1 · side, lip curls in'], [1, Math.PI, 'open 1 · back (the horizon)']]) {
+    for (const [open, yaw, name] of [[0.15, 0, 'open 0.15 · crack running'], [0.3, 0, 'open 0.3 · crack complete'], [0.6, 0, 'open 0.6 · tearing'], [1, 0, 'open 1 · front'], [1, Math.PI * 0.42, 'open 1 · side, lip curls in'], [1, Math.PI, 'open 1 · back (the horizon)']]) {
       wall.userData.uniforms.uOpen.value = open;
       shot(s, frameCam(box, yaw, 0.08, 360, 360, { target: [0, 0, 0], radius: 6 }), 360, 360, tearRow, name);
     }
@@ -178,7 +178,7 @@ try {
     const n = count(fb);
     // the biggest contributors, so an over-budget state says where the triangles are
     const parts = [];
-    fb.traverse(o => { if (o.isMesh) parts.push([o.name || o.material?.type || 'mesh', o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3]); });
+    fb.traverse(o => { if (o.isMesh) parts.push([o.name || o.parent?.name || o.geometry.type.replace('Geometry', '') || 'mesh', o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3]); });
     parts.sort((a, b) => b[1] - a[1]);
     row(`Fault building · ${state}`, n.tris, 2000, 'tris', n.calls, 'largest: ' + parts.slice(0, 3).map(([k, t]) => `${k} ${Math.round(t)}`).join(', '));
     turnaround(`Fault building · ${state}`, fb, { size: [360, 480] });
