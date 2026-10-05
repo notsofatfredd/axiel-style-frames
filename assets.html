@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Asset Pipeline Check</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0B0B0C; --graphite:#1D1D1F; --stone:#6A675F; --bone:#D6D2C8; --paper:#F2EFE9; --gold:#C9A35B; --red:#C2412D; --pass:#9FC2A0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--bone); font: 400 14px/1.5 Montserrat, sans-serif; padding: 20px 16px 40px; }
+  h1 { margin: 0 0 4px; font-weight: 300; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; }
+  h1 b { color: var(--gold); font-weight: 500; }
+  h2 { font: 500 11px "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--stone); margin: 28px 0 8px; }
+  p { margin: 0; max-width: 820px; color: var(--paper); }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px; margin-bottom: 8px; }
+  figure { margin: 0; } canvas { width: 100%; height: auto; display: block; background: var(--graphite); }
+  figcaption { font: 400 11px "JetBrains Mono", monospace; color: var(--stone); margin-top: 4px; }
+  .tbl { overflow-x: auto; }
+  table { border-collapse: collapse; font: 400 12px/1.5 "JetBrains Mono", monospace; min-width: 640px; }
+  th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--graphite); vertical-align: top; }
+  th { color: var(--stone); font-weight: 500; }
+  .PASS { color: var(--pass); } .FAIL { color: var(--red); }
+  pre { font: 400 12px/1.6 "JetBrains Mono", monospace; color: var(--bone); background: var(--graphite); padding: 12px; overflow-x: auto; white-space: pre-wrap; }
+  .err { color: var(--red); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<h1><b>AXIEL</b> · G7 · Assets</h1>
+<p id="intro">Every static prop (§7.1) exported from its code kit to GLB, ambient occlusion baked in Blender where the geometry is static (city ground, strata), then Draco + KTX2. This page loads the packed files, rebuilds the kit materials from the recipes they carry, and renders each one beside the kit that made it: the GLB must match the code (and so the style frames) within the gate. Left: kit. Middle: GLB. Right: difference ×8.</p>
+<h2>Assets</h2>
+<div class="tbl"><table id="tbl"><thead><tr><th>File</th><th>Scene</th><th>Tier</th><th>Size</th><th>Tris</th><th>Calls</th><th>Textures (device est.)</th><th>Match (mean / px &gt; 16)</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+<div id="turns"></div>
+<h2>Numbers</h2>
+<pre id="stats">Building…</pre>
+<script type="module">
+import { THREE, col, tokenEnv, canvas, loadImage } from './js/core.js';
+import { makeStrata, makeSpecimens, SPECIMENS } from './js/kit/strata.js';
+import { makeCity, makeGround, makeFaultBuilding, stainDecal } from './js/kit/city.js';
+import { makeSeal, SYMBOL_SRC } from './js/kit/seal.js';
+import { exportContext, withRecipes, rebuildScene } from './js/kit/glb.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const MODE = new URLSearchParams(location.search).get('mode') ?? 'verify';
+const CDN = 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/';
+const out = { mode: MODE, ok: false, done: false, errors: [], files: {}, manifest: null, rows: [] };
+window.__assets = out;
+window.__shots = {};
+const origErr = console.error.bind(console);
+console.error = (...a) => { out.errors.push(a.map(String).join(' ').slice(0, 400)); origErr(...a); };
+
+/* ---------- the assets (§7.1: scene_object_variant.glb) ----------
+   tier: which download set the file belongs to (§7.2 desktop / mobile budgets). lightmaps: meshes that get a
+   baked AO map on TEXCOORD_1; bake: the Blender scene they are baked in. */
+const VIEWS = [['front', 0], ['3/4', Math.PI / 4], ['side', Math.PI / 2]];
+const AERIAL = [['aerial front', 0], ['aerial 3/4', Math.PI / 4]];
+const lm = (mesh, name) => { mesh.name = name; mesh.geometry.setAttribute('uv1', mesh.geometry.attributes.uv.clone()); return mesh; };
+const strataParts = (s) => ({ cliff: s.userData.cliff, floor: s.children.find(c => c.isMesh && c !== s.userData.cliff) });
+const ASSETS = [
+  { id: 'seal_wax_v1', scene: 'Seal', tier: 'all', elev: 0.2, size: [360, 360], build: () => makeSeal({}) },
+  { id: 'strata_specimens_v1', scene: 'ATLAS (Strata)', tier: 'all', elev: 0.1, size: [480, 300], note: 'the 12 PROPOSED stand-ins (real artefacts still UNKNOWN)',
+    build: async () => makeSpecimens(SPECIMENS, await loadImage(SYMBOL_SRC)) },
+  { id: 'strata_cliff_v1', scene: 'ATLAS (Strata)', tier: 'all', elev: 0.05, size: [400, 400], bake: 'strata',
+    lightmaps: [{ mesh: 'strata-cliff', w: 1024, h: 1024, dist: 3 }, { mesh: 'strata-floor', w: 1024, h: 256, dist: 3 }],
+    build: async () => { const s = await makeStrata({}); s.remove(s.userData.specs); const p = strataParts(s); lm(p.cliff, 'strata-cliff'); lm(p.floor, 'strata-floor'); return s; } },
+  { id: 'city_fill-high_v1', scene: 'city (shared)', tier: 'high', views: AERIAL, elev: 0.5, pad: 0.8, size: [480, 270], build: () => makeCity({ tier: 'high' }) },
+  { id: 'city_fill-mid_v1', scene: 'city (shared)', tier: 'mid', views: AERIAL, elev: 0.5, pad: 0.8, size: [480, 270], build: () => makeCity({ tier: 'mid' }) },
+  { id: 'city_ground_v1', scene: 'city (shared)', tier: 'all', views: AERIAL, elev: 0.5, pad: 0.8, size: [480, 270], bake: 'city',
+    lightmaps: [{ mesh: 'city-ground', w: 2048, h: 1024, dist: 6 }], build: () => lm(makeGround({}), 'city-ground') },
+  { id: 'amos_faultbuilding-empty_v1', scene: 'AMOS', tier: 'all', size: [300, 400], build: () => makeFaultBuilding({ state: 'empty' }) },
+  { id: 'amos_faultbuilding-repaired_v1', scene: 'AMOS', tier: 'all', size: [300, 400],
+    build: () => makeFaultBuilding({ state: 'repaired', wet: true, cardGlow: 0.26, hiGlow: 1 }) },
+  { id: 'amos_stain_v1', scene: 'AMOS', tier: 'all', views: [['front', 0]], elev: 0, size: [300, 300], build: () => stainDecal({}) },
+];
+// the Blender bake scenes: targets carry TEXCOORD_1; everything that can occlude them is one plain mesh
+const BAKES = {
+  city: async () => ({ targets: [await ASSETS.find(a => a.id === 'city_ground_v1').build()],
+    occluders: [makeCity({ tier: 'high' }), await makeFaultBuilding({ state: 'repaired' })] }),
+  strata: async () => {
+    const s = await makeStrata({}), p = strataParts(s);
+    return { targets: [lm(p.cliff, 'strata-cliff'), lm(p.floor, 'strata-floor')], occluders: [s.userData.specs] };
+  },
+};
+
+/* ---------- shared rendering ---------- */
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1);
+R.outputColorSpace = THREE.SRGBColorSpace;
+R.toneMapping = THREE.NeutralToneMapping;
+const ENV = tokenEnv(R, ['bone', 'stone', 'ink']);
+const studio = () => {
+  const s = new THREE.Scene(); s.background = col('graphite'); s.environment = ENV;
+  s.add(new THREE.HemisphereLight(col('bone'), col('ink'), 0.7));
+  const k = new THREE.DirectionalLight(col('bone'), Math.PI * 0.9); k.position.set(-3, 5, 4); s.add(k);
+  const r = new THREE.DirectionalLight(col('bone'), Math.PI * 0.25); r.position.set(4, 2, -5); s.add(r);
+  return s;
+};
+const frameCam = (box, yaw, elev, w, h, o = {}) => {
+  const sph = box.getBoundingSphere(new THREE.Sphere()), c = sph.center;
+  const fov = 30, vf = fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * w / h);
+  const d = sph.radius / Math.sin(Math.min(vf, hf) / 2) * (o.pad ?? 1.04);
+  const cam = new THREE.PerspectiveCamera(fov, w / h, d / 200, d * 4);
+  cam.position.set(c.x + Math.sin(yaw) * Math.cos(elev) * d, c.y + Math.sin(elev) * d, c.z + Math.cos(yaw) * Math.cos(elev) * d);
+  cam.lookAt(c);
+  return cam;
+};
+const grab = (scene, cam, w, h) => {
+  R.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+  R.render(scene, cam);
+  const c = canvas(w, h); c.getContext('2d').drawImage(R.domElement, 0, 0);
+  return c;
+};
+const count = (root) => {
+  let tris = 0, calls = 0, instances = 0;
+  root.traverse(o => {
+    if (!o.isMesh || o.visible === false) return;
+    const g = o.geometry, n = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+    const k = o.isInstancedMesh ? o.count : 1;
+    // a multi-material mesh draws once per group (the GLB writes one primitive per group)
+    tris += n * k; calls += Array.isArray(o.material) ? Math.max(1, g.groups.length) : 1;
+    if (o.isInstancedMesh) instances += o.count;
+  });
+  return { tris: Math.round(tris), calls, instances };
+};
+const ceil4 = (n) => Math.ceil(n / 4) * 4;
+const b64 = (buf) => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
+const SLOTS = ['map', 'emissiveMap', 'normalMap', 'aoMap', 'roughnessMap', 'metalnessMap'];
+
+/* ---------- export ---------- */
+// a texture image as PNG, sized to a multiple of 4 (block compression) and pre-flipped when three would flip it on upload
+const png = (tex) => {
+  const img = tex.image, w = ceil4(img.width), h = ceil4(img.height), c = canvas(w, h), x = c.getContext('2d');
+  if (tex.flipY) { x.translate(0, h); x.scale(1, -1); }
+  x.drawImage(img, 0, 0, w, h);
+  return { b64: c.toDataURL('image/png').split(',')[1], w, h, src: [img.width, img.height] };
+};
+const fit4 = (root) => root.traverse(o => {
+  if (!o.isMesh) return;
+  for (const m of [].concat(o.material)) for (const k of SLOTS) {
+    const t = m[k], img = t?.image;
+    if (!img || (img.width % 4 === 0 && img.height % 4 === 0)) continue;
+    const c = canvas(ceil4(img.width), ceil4(img.height)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    t.image = c; t.needsUpdate = true;
+  }
+});
+const glb = (root) => new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 4096 });
+const strip = (g, keep) => { for (const k of Object.keys(g.attributes)) if (!keep.includes(k)) g.deleteAttribute(k); return g.index ? g.toNonIndexed() : g; };
+
+async function runExport() {
+  const man = { v: 1, built: new Date().toISOString(), assets: [], bakes: [] };
+  for (const a of ASSETS) {
+    const root = await a.build(); root.updateMatrixWorld(true);
+    fit4(root);
+    const ctx = exportContext(a.id);
+    const buf = await withRecipes(ctx, root, () => glb(root));
+    out.files[`${a.id}.glb`] = b64(buf);
+    const sidecars = [];
+    for (const [tex, s] of ctx.side) {
+      const p = png(tex);
+      out.files[`${s.name}.png`] = p.b64;
+      sidecars.push({ name: s.name, png: `${s.name}.png`, w: p.w, h: p.h, src: p.src, srgb: tex.colorSpace === THREE.SRGBColorSpace, sampler: s.sampler });
+    }
+    const n = count(root);
+    man.assets.push({ id: a.id, scene: a.scene, tier: a.tier, glb: `${a.id}.glb`, rawBytes: buf.byteLength, sidecars, lightmaps: a.lightmaps ?? [], bake: a.bake ?? null, note: a.note ?? '', ...n });
+  }
+  for (const [id, make] of Object.entries(BAKES)) {
+    const { targets, occluders } = await make();
+    const plain = new THREE.MeshStandardMaterial({ color: 0xb0b0b0, roughness: 1 });
+    const root = new THREE.Group();
+    for (const t of targets) {
+      t.updateWorldMatrix(true, false);
+      const m = new THREE.Mesh(strip(t.geometry.clone().applyMatrix4(t.matrixWorld), ['position', 'normal', 'uv', 'uv1']), plain);
+      m.name = t.name; root.add(m);
+    }
+    const geos = [];
+    for (const r of occluders) {
+      r.updateMatrixWorld(true);
+      r.traverse(o => {
+        if (!o.isMesh || [].concat(o.material).some(m => m.transparent)) return;
+        if (o.isInstancedMesh) {
+          const m4 = new THREE.Matrix4();
+          for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m4); geos.push(strip(o.geometry.clone().applyMatrix4(m4).applyMatrix4(o.matrixWorld), ['position', 'normal'])); }
+        } else geos.push(strip(o.geometry.clone().applyMatrix4(o.matrixWorld), ['position', 'normal']));
+      });
+    }
+    const occ = new THREE.Mesh(mergeGeometries(geos), plain); occ.name = 'occluders'; root.add(occ);
+    const buf = await glb(root);
+    out.files[`bake_${id}.glb`] = b64(buf);
+    man.bakes.push({ id, glb: `bake_${id}.glb`, targets: ASSETS.filter(a => a.bake === id).flatMap(a => a.lightmaps) });
+  }
+  out.manifest = man;
+  document.getElementById('stats').textContent = JSON.stringify({ files: Object.keys(out.files), errors: out.errors }, null, 2);
+}
+
+/* ---------- verify ---------- */
+// mean absolute difference (0..1 over RGB) and the share of pixels where any channel moved by more than 16/255
+const diff = (a, b) => {
+  const w = a.width, h = a.height, A = a.getContext('2d').getImageData(0, 0, w, h).data, B = b.getContext('2d').getImageData(0, 0, w, h).data;
+  const c = canvas(w, h), x = c.getContext('2d'), D = x.createImageData(w, h);
+  let sum = 0, over = 0;
+  for (let i = 0; i < A.length; i += 4) {
+    const dr = Math.abs(A[i] - B[i]), dg = Math.abs(A[i + 1] - B[i + 1]), db = Math.abs(A[i + 2] - B[i + 2]);
+    sum += dr + dg + db; if (Math.max(dr, dg, db) > 16) over++;
+    D.data[i] = Math.min(255, dr * 8); D.data[i + 1] = Math.min(255, dg * 8); D.data[i + 2] = Math.min(255, db * 8); D.data[i + 3] = 255;
+  }
+  x.putImageData(D, 0, 0);
+  return { mean: sum / (w * h * 3 * 255), over: over / (w * h), canvas: c };
+};
+// PROPOSED gate: the GLB is the kit within 1% mean and 2% of pixels (§11.1 uses 2% for the visual suite)
+const MATCH = { mean: 0.01, over: 0.02 };
+// device texture memory: KTX2 (ETC1S / UASTC) transcodes to BC7 / ASTC 4×4 / ETC2 RGBA, 1 byte per pixel; + 1/3 for mips
+const texBytes = (root) => {
+  const seen = new Set(), list = [];
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      const ts = [...SLOTS, 'alphaMap', 'bumpMap'].map(k => m[k]);
+      for (const u of Object.values(m.userData.uniforms ?? {})) ts.push(u.value);
+      for (const t of ts) if (t?.isTexture && !seen.has(t)) {
+        seen.add(t);
+        const w = t.image?.width ?? t.mipmaps?.[0]?.width ?? 0, h = t.image?.height ?? t.mipmaps?.[0]?.height ?? 0;
+        list.push({ name: t.name || '(sidecar)', w, h, ktx2: !!t.isCompressedTexture, bytes: Math.round(w * h * (t.isCompressedTexture ? 1 : 4) * 4 / 3) });
+      }
+    }
+  });
+  return { list, bytes: list.reduce((s, t) => s + t.bytes, 0) };
+};
+const fig = (row, c, cap, key) => {
+  const f = document.createElement('figure'); f.append(c);
+  const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc);
+  row.append(f); window.__shots[key] = c;
+};
+const turns = document.getElementById('turns');
+const section = (title) => {
+  const h = document.createElement('h2'); h.textContent = title; turns.append(h);
+  const row = document.createElement('div'); row.className = 'row'; turns.append(row);
+  return row;
+};
+
+async function loadPacked(man) {
+  const gl = new GLTFLoader();
+  const draco = new DRACOLoader().setDecoderPath(CDN + 'draco/gltf/');
+  const ktx2 = new KTX2Loader().setTranscoderPath(CDN + 'basis/').detectSupport(R);
+  gl.setDRACOLoader(draco); gl.setKTX2Loader(ktx2);
+  const loaded = {};
+  for (const a of man.assets) {
+    const side = {}, samplers = {};
+    for (const s of a.sidecars) { side[s.name] = await ktx2.loadAsync('glb/' + s.ktx2); samplers[s.name] = s.sampler; }
+    const gltf = await gl.loadAsync('glb/' + a.glb);
+    const rb = rebuildScene(gltf.scene, side, samplers);
+    loaded[a.id] = { root: gltf.scene, rb };
+  }
+  return loaded;
+}
+
+async function runVerify() {
+  const man = await (await fetch('glb/manifest.json', { cache: 'no-store' })).json();
+  out.manifest = man;
+  const loaded = await loadPacked(man);
+  const tb = document.querySelector('#tbl tbody');
+  for (const a of ASSETS) {
+    const m = man.assets.find(x => x.id === a.id);
+    if (!m) { out.rows.push({ id: a.id, result: 'FAIL', why: 'missing from manifest' }); continue; }
+    const G = loaded[a.id].root, K = await a.build();
+    const s = studio(); s.add(K); s.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(K);
+    const [w, h] = a.size ?? [360, 360];
+    const row = section(`${a.id} · ${a.scene}${a.note ? ' · ' + a.note : ''}`);
+    const views = [];
+    // kit first, then the GLB in the same light and camera; AO off so the match measures the export, not the bake
+    for (const mat of loaded[a.id].rb.materials) mat.aoMapIntensity = 0;
+    for (const [name, yaw] of a.views ?? VIEWS) {
+      const cam = frameCam(box, yaw, a.elev ?? 0.12, w, h, a);
+      s.add(K); s.remove(G); const ck = grab(s, cam, w, h);
+      s.remove(K); s.add(G); const cg = grab(s, cam, w, h);
+      const d = diff(ck, cg);
+      views.push({ view: name, mean: d.mean, over: d.over });
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      fig(row, ck, `kit · ${name}`, `${a.id}-${slug}-kit`);
+      fig(row, cg, `GLB · ${name}`, `${a.id}-${slug}-glb`);
+      fig(row, d.canvas, `diff ×8 · mean ${(d.mean * 100).toFixed(2)}% · ${(d.over * 100).toFixed(2)}% px`, `${a.id}-${slug}-diff`);
+    }
+    for (const mat of loaded[a.id].rb.materials) mat.aoMapIntensity = 1;
+    s.remove(G);
+    const n = count(G), t = texBytes(G);
+    const worst = { mean: Math.max(...views.map(v => v.mean)), over: Math.max(...views.map(v => v.over)) };
+    // Draco edgebreaker may drop degenerate triangles, so the count may fall a hair under the kit, never rise
+    const trisOk = n.tris <= m.tris && n.tris >= m.tris * 0.995;
+    const pass = worst.mean <= MATCH.mean && worst.over <= MATCH.over && trisOk && n.calls <= m.calls;
+    const r = { id: a.id, scene: a.scene, tier: a.tier, glb: m.glb, bytes: m.bytes, sidecarBytes: m.sidecarBytes, tris: n.tris, calls: n.calls, kitTris: m.tris, kitCalls: m.calls,
+      instances: n.instances, textures: t.list, texBytes: t.bytes, views, worst, result: pass ? 'PASS' : 'FAIL' };
+    if (!pass) r.why = [worst.mean > MATCH.mean && `mean ${(worst.mean * 100).toFixed(2)}%`, worst.over > MATCH.over && `px ${(worst.over * 100).toFixed(2)}%`,
+      !trisOk && `tris ${n.tris} vs kit ${m.tris}`, n.calls > m.calls && `calls ${n.calls} > kit ${m.calls}`].filter(Boolean).join(', ');
+    out.rows.push(r);
+    const tr = document.createElement('tr');
+    const kb = (b) => (b / 1024).toFixed(0) + ' KB';
+    tr.innerHTML = `<td>${m.glb}</td><td>${a.scene}</td><td>${a.tier}</td><td>${kb(m.bytes + (m.sidecarBytes ?? 0))}</td><td>${n.tris.toLocaleString('en')}</td><td>${n.calls}</td><td>${t.list.length} · ${(t.bytes / 1048576).toFixed(1)} MB</td><td>${(worst.mean * 100).toFixed(2)}% / ${(worst.over * 100).toFixed(2)}%</td><td class="${r.result}">${r.result}</td>`;
+    tb.append(tr);
+  }
+  // the bake, in context: ground + fill + fault building, and cliff + specimens, AO off then on
+  const ctxShots = [
+    ['city', ['city_ground_v1', 'city_fill-high_v1', 'amos_faultbuilding-repaired_v1'], [640, 360], 0.5, 0.75],
+    ['strata', ['strata_cliff_v1', 'strata_specimens_v1'], [480, 480], 0.1, 0.9],
+  ];
+  for (const [id, ids, [w, h], elev, pad] of ctxShots) {
+    const row = section(`Baked ambient occlusion · ${id} · off, on`);
+    const s = studio(), roots = ids.map(i => loaded[i].root);
+    for (const r of roots) s.add(r);
+    s.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(roots[0]);
+    const cam = frameCam(box, Math.PI / 5, elev, w, h, { pad });
+    const mats = ids.flatMap(i => loaded[i].rb.materials).filter(m => m.aoMap);
+    out.bakes = out.bakes ?? {};
+    out.bakes[id] = mats.map(m => m.name);
+    for (const on of [0, 1]) { for (const m of mats) m.aoMapIntensity = on; fig(row, grab(s, cam, w, h), `AO ${on ? 'on' : 'off'}`, `bake-${id}-${on ? 'on' : 'off'}`); }
+    for (const r of roots) s.remove(r);
+  }
+  out.fail = out.rows.filter(r => r.result !== 'PASS').map(r => `${r.id}: ${r.why ?? r.result}`);
+  if (!Object.values(out.bakes ?? {}).every(l => l.length)) out.fail.push('a baked lightmap did not load as an aoMap');
+  document.getElementById('stats').textContent = JSON.stringify({ rows: out.rows.length, fail: out.fail, errors: out.errors }, null, 2);
+}
+
+try {
+  await document.fonts.ready;
+  document.getElementById('intro').hidden = MODE === 'export';
+  if (MODE === 'export') await runExport(); else await runVerify();
+  out.ok = true;
+} catch (e) {
+  out.errors.push(String(e && e.stack || e));
+  const el = document.getElementById('stats'); el.className = 'err'; el.textContent = String(e && e.stack || e);
+} finally { out.done = true; }
+</script>
+</body>
+</html>

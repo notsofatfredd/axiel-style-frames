@@ -11,4 +11,5 @@ export const runtime = {
   amos: null as AmosWorld | null,
   scroll: null as Scroll | null,
   gpu: '',
+  freeze: { move: -1, evals: [] as { idle: number; inWindow: boolean; frozen: boolean }[] },   // Freeze decisions since the last scroll
 };

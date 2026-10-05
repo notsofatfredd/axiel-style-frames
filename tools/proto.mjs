@@ -99,7 +99,7 @@ for (const vp of VPS) {
     for (const p of SHOTS) {
       await toP(p);
       const f = `proto-${vp.id}-p${p.toFixed(2).slice(2)}.png`;
-      await page.screenshot({ path: `${OUT}/${f}` });
+      await page.screenshot({ path: `${OUT}/${f}`, timeout: 180000 });
       const s = await st();
       out.shots.push({ file: f, p, frozen: s.frozen, cap: `${vp.label} · p ${p.toFixed(2)} · ${s.key} · ${s.frozen ? 'frozen' : 'rain moving'}` });
     }
@@ -122,16 +122,24 @@ for (const vp of VPS) {
       };
       requestAnimationFrame(f);
     }));
+    // A SwiftShader frame can be longer than 400 ms, so the first frame after the scroll may rightly freeze; an outside
+    // sampler cannot see the 0 to 400 ms span. Freeze.tsx logs each decision since the last scroll (idle, in window,
+    // frozen), and the rule is checked on those: never frozen under 400 ms, and frozen at the first in-window
+    // decision at or past 400 ms (so the lag is at most one frame).
     const L = fz.length ? fz[fz.length - 1].lastMove : 0;
     for (const x of fz) x.idle = x.now - L;
-    const fi = fz.findIndex((x) => x.frozen), first = fz[fi];
     const early = fz.filter((x) => x.frozen && x.idle < 400);
-    const pre = fi > 0 ? fz.slice(Math.max(0, fi - 2), fi) : [];
-    const gap = fi > 0 ? first.now - fz[fi - 1].now : 0;
-    check('Not frozen while idle < 400 ms', early.length === 0 && fi > 0 && !fz[fi - 1].frozen,
-      `${fi < 0 ? fz.length : fi} frames unfrozen first, the last at ${(fi > 0 ? fz[fi - 1].idle : 0).toFixed(0)} ms idle; frozen frames under 400 ms: ${early.length}`);
-    check('Frozen after 400 ms idle', !!first && first.idle >= 400 && pre.some((x) => x.idle < 400 + 50),
-      first ? `first frozen frame at ${first.idle.toFixed(0)} ms idle; the frame before it at ${fz[fi - 1]?.idle.toFixed(0)} ms (SwiftShader frame ${gap.toFixed(0)} ms)` : 'never froze');
+    const fl = await page.evaluate(() => window.__axiel.debug.freeze());
+    const ev = fl.move === L ? fl.evals : [];
+    const ei = ev.findIndex((x) => x.frozen), efirst = ev[ei];
+    const evEarly = ev.filter((x) => x.frozen && x.idle < 400);
+    const missed = ev.slice(0, Math.max(0, ei)).filter((x) => x.inWindow && x.idle >= 400);
+    const gap = ei > 0 ? efirst.idle - ev[ei - 1].idle : efirst?.idle ?? 0;
+    check('Not frozen while idle < 400 ms', ev.length > 0 && evEarly.length === 0 && early.length === 0,
+      `${ev.length} decisions since the scroll (log ${fl.move === L ? 'matches' : 'does not match'} the last scroll); frozen under 400 ms: ${evEarly.length} decided, ${early.length} sampled`);
+    check('Frozen at the first frame past 400 ms idle', !!efirst && efirst.idle >= 400 && missed.length === 0,
+      efirst ? `froze at ${efirst.idle.toFixed(0)} ms idle, decision ${ei + 1} since the scroll; ${ei > 0 ? `the one before at ${ev[ei - 1].idle.toFixed(0)} ms` : 'the first frame after the scroll'} (SwiftShader frame ${gap.toFixed(0)} ms); in-window frames past 400 ms left unfrozen: ${missed.length}`
+        : 'never froze');
     const t1 = await amos().then((a) => a.time); await frames(3); const t2 = await amos().then((a) => a.time);
     check('Rain time stops while frozen', t1 === t2, `shader time ${t1.toFixed(3)} → ${t2.toFixed(3)} over 3 frames`);
 
@@ -146,7 +154,7 @@ for (const vp of VPS) {
     const aria = await page.evaluate(() => document.querySelector('.drop-labels')?.getAttribute('aria-label') ?? '');
     check('Readings exposed to assistive tech as one sentence', D4.every((t) => aria.includes(t)), aria);
     const ff = `proto-${vp.id}-p79-frozen.png`;
-    await page.screenshot({ path: `${OUT}/${ff}` });
+    await page.screenshot({ path: `${OUT}/${ff}`, timeout: 180000 });
     out.shots.push({ file: ff, p: 0.79, frozen: true, cap: `${vp.label} · p 0.79 · K16 · frozen, D4 labels on the drops` });
 
     // scrolling releases the freeze and the labels type back out (to 0.82, past the labels window, so it cannot re-freeze)

@@ -1,6 +1,7 @@
 """Build the review gallery from the per-frame render artifacts.
 
-Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir] [animatic_dir] [proto_dir]
+Usage: python tools/gallery.py <parts_dir> <out_dir> [run_number] [carto_dir] [objects_dir] [animatic_dir] [proto_dir] [assets_dir]
+  assets_dir: optional, the G7 asset check from tools/assets.mjs verify (kit / GLB / diff PNGs, lightmaps, assets.json)
   proto_dir: optional, the G6 prototype checks and screenshots from tools/proto.mjs (PNGs + proto.json)
   animatic_dir: optional, the G4 grey-box animatic from tools/animatic.mjs (MP4s, storyboard JPEGs, plot map, anim.json)
   parts_dir: one folder per frame job, each with PNGs and render-log.json (from tools/render.mjs)
@@ -24,7 +25,7 @@ SCENE = {'SF-01': 'Surface', 'SF-02': 'Fall', 'SF-03': 'ATLAS', 'SF-04': 'INDEX'
 VARIANT = [('high', 'desktop'), ('mid', 'desktop'), ('high', 'phone'), ('mid', 'phone')]
 
 
-def main(parts, out, run, carto=None, objects=None, animatic=None, proto=None):
+def main(parts, out, run, carto=None, objects=None, animatic=None, proto=None, assets=None):
     parts, out = Path(parts), Path(out)
     (out / 'full').mkdir(parents=True, exist_ok=True)
     (out / 'thumbs').mkdir(exist_ok=True)
@@ -168,6 +169,61 @@ def main(parts, out, run, carto=None, objects=None, animatic=None, proto=None):
         proto_html = (f'<section id="proto"><h2><span>G6</span> Technical prototype: AMOS</h2><p class="meta">Next.js static export, R3F, Lenis, GSAP ScrollTrigger · checks {ok6} · '
                       f'<a href="../proto/">open the prototype (renders on your device, heavy)</a> · <a href="../proto/?hud=1">with HUD</a> · <a href="../proto/?bench=1">fps bench</a> · '
                       f'<a href="../proto/?tier=mid">force Mid</a> · <a href="proto/proto.md">proto.md</a></p>{body}</section>')
+    # G7: assets. Each packed GLB beside the kit that made it (kit, GLB, diff ×8), the baked AO in context, budgets.
+    # The live check is ../assets.html (it loads ../glb/, published with the gallery).
+    g7_html = ''
+    aj = Path(assets) / 'assets.json' if assets else None
+    if aj and aj.exists():
+        a7 = json.loads(aj.read_text(encoding='utf-8'))
+        shutil.copytree(assets, out / 'g7', dirs_exist_ok=True)
+        ok7 = '<span class="pass">PASS</span>' if a7.get('ok') else '<span class="bad">FAIL</span>'
+        pk = a7.get('pack') or {}
+        prow = {r['id']: r for r in pk.get('rows', [])}
+        kb = lambda b: f'{(b or 0) / 1024:.0f} KB'
+        mb = lambda b: f'{(b or 0) / 1048576:.2f} MB'
+        pc = lambda v: f'{v * 100:.2f}%'
+        shots = set(a7.get('shots', []))
+        fig = lambda f, cap: (f'<figure><a href="g7/{html.escape(f)}"><img src="g7/{html.escape(f)}" alt="{html.escape(cap)}" loading="lazy"></a>'
+                              f'<figcaption><span>{html.escape(cap)}</span></figcaption></figure>') if f in shots or (Path(assets) / f).exists() else ''
+        trs, blocks = '', ''
+        for r in a7.get('rows', []):
+            q = prow.get(r['id'], {})
+            v = q.get('validator') or {}
+            w = r.get('worst') or {}
+            res = r.get('result', 'FAIL')
+            trs += (f'<tr><td>{html.escape(r.get("glb") or r["id"])}</td><td>{html.escape(r.get("tier", ""))}</td><td>{kb(q.get("bytes"))} + {kb(q.get("sidecarBytes"))}</td>'
+                    f'<td>{r.get("tris", 0):,}</td><td>{r.get("calls", "")}</td><td>{len(r.get("textures", []))} · {mb(r.get("texBytes"))}</td>'
+                    f'<td>{pc(w.get("mean", 0))} / {pc(w.get("over", 0))}</td><td>{v.get("errors", "?")} / {v.get("warnings", "?")}</td>'
+                    f'<td class="{"pass" if res == "PASS" else "bad"}">{res}{(" · " + html.escape(r["why"])) if r.get("why") else ""}</td></tr>')
+            figs = ''
+            for vw in r.get('views', []):
+                slug = ''.join(c if c.isalnum() else '-' for c in vw['view'].lower()).strip('-')
+                while '--' in slug:
+                    slug = slug.replace('--', '-')
+                for kind in ('kit', 'glb', 'diff'):
+                    cap = f'{r["id"]} · {vw["view"]} · {kind}' + (f' · mean {pc(vw["mean"])}, {pc(vw["over"])} px' if kind == 'diff' else '')
+                    figs += fig(f'{r["id"]}-{slug}-{kind}.png', cap)
+            blocks += f'<h3>{html.escape(r["id"])} · {html.escape(r.get("scene", ""))}</h3><div class="shots">{figs}</div>'
+        bake = ''
+        for k in ('city', 'strata'):
+            f2 = fig(f'bake-{k}-off.png', f'{k} · AO off') + fig(f'bake-{k}-on.png', f'{k} · AO on')
+            if f2:
+                bake += f'<h3>Baked ambient occlusion · {k}</h3><div class="shots">{f2}</div>'
+        bk = a7.get('bake') or {}
+        lm = ''.join(fig(f'{b["mesh"]}.png', f'{b["mesh"]} lightmap · {b["w"]}×{b["h"]} · AO {b["dist"]} m · mean {b["mean"]}') for b in bk.get('bakes', []))
+        if lm:
+            bake += f'<h3>Lightmaps (TEXCOORD_1), Blender {html.escape(str(bk.get("blender", "")))}, Cycles CPU, {bk.get("samples")} samples</h3><div class="shots">{lm}</div>'
+        sets = pk.get('sets', {})
+        tex = a7.get('tex', {})
+        budget = ''.join(f'<tr><td>{k}</td><td>{mb(sets.get(k, {}).get("total"))} (decoders {kb(sets.get(k, {}).get("decoders"))})</td><td>{12 if k == "desktop" else 6} MB</td>'
+                         f'<td>{mb(tex.get(k, {}).get("bytes"))}</td><td>{256 if k == "desktop" else 96} MB</td></tr>' for k in ('desktop', 'mobile'))
+        fails = ''.join(f'<li>{html.escape(f)}</li>' for f in a7.get('fails', []))
+        g7_html = (f'<section id="assets"><h2><span>G7</span> Assets</h2><p class="meta">Kit → GLB → Draco + KTX2, ambient occlusion baked in Blender · checks {ok7} · '
+                   f'<a href="../assets.html">open the check (loads the packed GLBs on your device)</a> · <a href="g7/assets.md">assets.md</a></p>'
+                   f'<p class="meta">Each packed GLB is rendered beside the kit that made it, in the same camera and light, AO off. Gate (PROPOSED): mean ≤ 1%, pixels moved more than 16 ≤ 2%.</p>'
+                   f'<div class="tbl"><table><thead><tr><th>File</th><th>Tier</th><th>Packed + sidecars</th><th>Tris</th><th>Calls</th><th>Textures</th><th>Match</th><th>Validator err / warn</th><th>Result</th></tr></thead><tbody>{trs}</tbody></table></div>'
+                   f'<div class="tbl"><table><thead><tr><th>Set (§7.2)</th><th>3D download</th><th>Budget</th><th>Texture memory (est.)</th><th>Budget</th></tr></thead><tbody>{budget}</tbody></table></div>'
+                   f'{("<ul class=bad>" + fails + "</ul>") if fails else ""}{bake}{blocks}</section>')
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -209,9 +265,9 @@ footer {{ padding-top: 32px; padding-bottom: 48px; font-size: 13px; color: var(-
 <h1><b>AXIEL</b> · Gate G2 style frames</h1>
 <p class="meta">{ok} of {len(log)} rendered · run {html.escape(str(run))} · {when}<br>
 Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <a href="../">live harness (renders on your device, heavy)</a></p>
-<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}{'<a href="#animatic">ANIMATIC</a>' if anim_html else ''}{'<a href="#proto">G6 PROTOTYPE</a>' if proto_html else ''}</nav>
+<nav>{''.join(f'<a href="#{f.lower()}">{f}</a>' for f in ORDER if any(e['id'] == f for e in log))}{'<a href="#carto">CARTOGRAPHER</a>' if carto_html else ''}{'<a href="#objects">OBJECTS</a>' if objects_html else ''}{'<a href="#animatic">ANIMATIC</a>' if anim_html else ''}{'<a href="#proto">G6 PROTOTYPE</a>' if proto_html else ''}{'<a href="#assets">G7 ASSETS</a>' if g7_html else ''}</nav>
 </header>
-<main>{''.join(cards)}{carto_html}{objects_html}{anim_html}{proto_html}</main>
+<main>{''.join(cards)}{carto_html}{objects_html}{anim_html}{proto_html}{g7_html}</main>
 <footer>Rendered by the Render frames workflow on GitHub Actions (software WebGL). Numbers are a headless check, not a visual review.</footer>
 </body></html>
 """
@@ -223,4 +279,4 @@ Tap a frame for the full-size PNG · <a href="render-log.md">render log</a> · <
 if __name__ == '__main__':
     main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'local', sys.argv[4] if len(sys.argv) > 4 else None,
          sys.argv[5] if len(sys.argv) > 5 else None, sys.argv[6] if len(sys.argv) > 6 else None,
-         sys.argv[7] if len(sys.argv) > 7 else None)
+         sys.argv[7] if len(sys.argv) > 7 else None, sys.argv[8] if len(sys.argv) > 8 else None)

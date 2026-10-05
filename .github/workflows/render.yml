@@ -12,7 +12,7 @@ on:
         required: false
         default: ''
   push:
-    paths: ['js/**', 'index.html', 'cartographer.html', 'objects.html', 'animatic.html', 'assets/**', 'tools/**', 'site/**', '.github/workflows/render.yml']
+    paths: ['js/**', 'index.html', 'cartographer.html', 'objects.html', 'animatic.html', 'assets.html', 'assets/**', 'tools/**', 'site/**', '.github/workflows/render.yml']
 
 # Runners pinned to ubuntu-24.04: ubuntu-latest moves to Ubuntu 26 on 2026-10-19, which the pinned
 # Playwright's --with-deps install may not support. Move both together, on purpose, in one push.
@@ -190,8 +190,71 @@ jobs:
           path: site/out/
           retention-days: 7
 
+  assets:
+    # G7 assets: every static prop exported from its kit to GLB, ambient occlusion baked in Blender where the
+    # geometry is static, Draco + KTX2, then each GLB rendered beside the kit that made it and gated on the match
+    # and the §7.2 budgets. Nothing is committed: the GLBs are rebuilt from the kits on every run.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright, gltf-transform, validator (one npm call, so nothing prunes the rest)
+        run: |
+          for i in 1 2 3; do npm i --no-save --no-package-lock playwright@1.48.2 three@0.169.0 @gltf-transform/cli@4.5.1 @gltf-transform/core@4.5.1 @gltf-transform/functions@4.5.1 @gltf-transform/extensions@4.5.1 draco3dgltf@1.5.7 gltf-validator@2.0.0-dev.3.10 pngjs@7 && break; echo "retry $i"; sleep 15; done
+          for i in 1 2 3; do npx playwright install --with-deps chromium && break; echo "retry $i"; sleep 15; done
+      - name: Install KTX-Software 4.4.2
+        run: |
+          for i in 1 2 3; do curl -fsSL -o /tmp/ktx.deb https://github.com/KhronosGroup/KTX-Software/releases/download/v4.4.2/KTX-Software-4.4.2-Linux-x86_64.deb && break; echo "retry $i"; sleep 15; done
+          sudo apt-get install -y /tmp/ktx.deb
+          ktx --version
+      - uses: actions/cache@v4
+        with:
+          path: ~/blender
+          key: blender-4.2.3-linux-x64
+      - name: Install Blender 4.2.3 LTS (headless, bake only)
+        run: |
+          if [ ! -x ~/blender/blender ]; then
+            for i in 1 2 3; do curl -fsSL -o /tmp/blender.tar.xz https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz && break; echo "retry $i"; sleep 15; done
+            tar -xJf /tmp/blender.tar.xz -C ~ && mv ~/blender-4.2.3-linux-x64 ~/blender
+          fi
+          sudo apt-get install -y libxi6 libxkbcommon0 libxrender1 libxxf86vm1 libxfixes3 libsm6 libgl1 libegl1
+          ~/blender/blender --version | head -1
+      - name: Export the kits to raw GLB
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 > /dev/null 2>&1 &
+          for i in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8000/assets.html && break; sleep 1; done
+          node tools/assets.mjs export http://127.0.0.1:8000/assets.html g7/raw
+      - name: Bake ambient occlusion (Blender, Cycles CPU)
+        run: ~/blender/blender -b --factory-startup --python-exit-code 1 --python tools/bake.py -- g7/raw/manifest.json g7/raw g7/bake 128
+      - name: Pack (lightmaps, Draco, KTX2, validator, budgets)
+        run: node tools/pack.mjs g7/raw g7/bake glb
+      - name: Verify the packed GLBs against the kits
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 > /dev/null 2>&1 &
+          for i in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8000/glb/manifest.json && break; sleep 1; done
+          mkdir -p g7check && cp g7/bake/*.png g7check/ 2>/dev/null || true
+          node tools/assets.mjs verify http://127.0.0.1:8000/assets.html g7check glb
+      - name: Summary
+        if: always()
+        run: cat g7check/assets.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "no G7 report" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g7check
+          path: g7check/
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: glb
+          path: glb/
+          retention-days: 7
+
   collect:
-    needs: [render, carto, objects, animatic, proto]
+    needs: [render, carto, objects, animatic, proto, assets]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -224,10 +287,15 @@ jobs:
         with:
           name: proto
           path: proto
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: g7check
+          path: g7check
       - name: Build gallery
         run: |
           pip install --quiet pillow
-          python tools/gallery.py parts gallery ${{ github.run_number }} carto objects animatic proto
+          python tools/gallery.py parts gallery ${{ github.run_number }} carto objects animatic proto g7check
           sed '1s/^\xEF\xBB\xBF//' gallery/render-log.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
@@ -239,7 +307,7 @@ jobs:
     # default success(): skipped if any frame failed or went over budget, so Pages keeps the last good set.
     # Only the gallery branch deploys (repo variable GALLERY_BRANCH, else worktree-g2-v14): side branches
     # render and upload artifacts for review without overwriting the public gallery.
-    needs: [render, carto, objects, animatic, proto, collect]
+    needs: [render, carto, objects, animatic, proto, assets, collect]
     if: ${{ success() && !github.event.inputs.frames && github.ref_name == (vars.GALLERY_BRANCH || 'worktree-g2-v14') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -260,6 +328,10 @@ jobs:
         with:
           name: proto-site
           path: proto
+      - uses: actions/download-artifact@v4
+        with:
+          name: glb
+          path: glb
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .

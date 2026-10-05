@@ -48,6 +48,7 @@ export default function Experience() {
         return { p: st.p, lastMove: st.lastMove, frozen: st.frozen, phone: st.phone, tier: st.tier, mounted: st.mounted, ready: st.ready, labels: st.labels, key: runtime.key, camMode: runtime.camMode, calls: runtime.calls, tris: runtime.tris, gpu: runtime.gpu };
       },
       debug: {
+        freeze: () => ({ move: runtime.freeze.move, evals: [...runtime.freeze.evals] }),
         amos: () => runtime.amos && { ...runtime.amos.state, drops: runtime.amos.rain.n, kinds: runtime.amos.rain.counts, reflect: !!runtime.amos.film.reflector, time: runtime.amos.rain.uniforms.uTime.value },
       },
     };

@@ -140,6 +140,7 @@ export function detailMat(params, o = {}) {
   };
   m.customProgramCacheKey = () => 'detail' + id;
   if (o.bloomPart) m.userData.bloomPart = true;
+  m.userData.detail = { keys: Object.keys(params), o };   // the recipe, so js/kit/glb.js can write it into a GLB and rebuild it (G7)
   return m;
 }
 

@@ -1,6 +1,6 @@
-# AXIEL · The Gallery Beneath (G2 style frames, G3 hero objects, G4 camera, G5 motion, G6 prototype)
+# AXIEL · The Gallery Beneath (G2 style frames, G3 hero objects, G4 camera, G5 motion, G6 prototype, G7 assets)
 
-Code-rendered style frames SF-01 to SF-08 (plus SF-07b) and the G3 hero objects for the axiel.co.za homepage, "The Gallery Beneath". This README is the **frame render log** for the G2 checklist (protocol v1.4, §2.5) and the object log for G3, the camera log for G4, the timing log for G5 and the prototype log for G6.
+Code-rendered style frames SF-01 to SF-08 (plus SF-07b) and the G3 hero objects for the axiel.co.za homepage, "The Gallery Beneath". This README is the **frame render log** for the G2 checklist (protocol v1.4, §2.5) and the object log for G3, the camera log for G4, the timing log for G5, the prototype log for G6 and the asset log for G7.
 
 Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3), light and material (§2.3) and palette tokens (§2.1), built on shared world kits (strata, city, Cartographer, Living Core, seal, paper wall). Nothing is colour-corrected afterwards. Signed decisions used: G1.1 and G2-1 to G2-9.
 
@@ -13,7 +13,8 @@ Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3
 | G4 camera path and animatic | **Self-reviewed (2 passes), awaiting CD signature.** Clearance and legibility pass on desktop and phone; storyboard and 1080p animatic in the gallery. Human blockers listed under [G4](#g4-camera-path-and-animatic). |
 | G5 motion lock | **Self-reviewed (2 passes), awaiting CD signature.** All timing checks, the seven carriers and the reverse-scroll test pass on both viewports in every camera mode. Human blockers listed under [G5](#g5-motion-lock). |
 | G6 technical prototype | **Built, in CI review.** AMOS first, on the production stack. See [G6](#g6-technical-prototype-amos). |
-| G7 to G11 | Not started. |
+| G7 assets | **Built, in CI review.** Nine GLBs from the kits, AO baked, Draco + KTX2. See [G7](#g7-assets). |
+| G8 to G11 | Not started. |
 
 No gate is signed by the build itself. "Self-reviewed" means every checklist item was checked against the renders, not that it is approved.
 
@@ -24,6 +25,7 @@ No gate is signed by the build itself. "Self-reviewed" means every checklist ite
 - **Cartographer page** (G2-6 silhouette test, live): https://notsofatfredd.github.io/axiel-style-frames/cartographer.html
 - **Objects page** (G3 budgets and turnarounds, live, heavy): https://notsofatfredd.github.io/axiel-style-frames/objects.html
 - **G6 prototype** (AMOS on the production stack, live, heavy; `?hud=1`, `?bench=1`, `?tier=mid`): https://notsofatfredd.github.io/axiel-style-frames/proto/
+- **G7 asset check** (loads the packed GLBs beside their kits, live, heavy): https://notsofatfredd.github.io/axiel-style-frames/assets.html?mode=verify
 
 All of them update only after a full render run passes (see below), so they always show the last good set. A failed frame also holds back harness changes on the link until a run passes. The pages need WebGL2 and an internet connection, because three.js and the fonts load from jsdelivr and Google Fonts.
 
@@ -256,34 +258,34 @@ Headless numeric check only; the visual review is above. All 24 deliverable PNGs
 Budgets (§7.2): desktop ≤ 150 calls and ≤ 500k triangles; phone ≤ 80 calls and ≤ 150k triangles. "Calls" is scene calls / total calls including the post chain. Every frame is inside budget. Phone SF-07 high uses 78 of 80 total calls; 47 of those are the post chain, not the scene.
 
 <!-- run-table -->
-Run 25.
+Run 27.
 
 | Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |
 |---|---|---|---|---|---|---|---|---|---|
-| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 254 | 0.0% | 0.0% | 225 / 4228 | 0 |
-| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 250 | 0.0% | 0.0% | 205 / 2477 | 0 |
-| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 233 / 1399 | 0 |
-| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 291 / 1541 | 0 |
-| SF-03 | high · desktop | 2560×1440 | 15 / 46 | 30,482 | 30 / 11 / 33 / 56 / 98 / 223 | 0.6% | 0.0% | 282 / 1475 | 0 |
-| SF-03 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 29 / 10 / 32 / 56 / 84 / 220 | 0.6% | 0.0% | 242 / 1514 | 0 |
-| SF-03 | high · phone | 1170×2532 | 15 / 46 | 30,482 | 35 / 11 / 37 / 57 / 94 / 218 | 0.0% | 0.0% | 291 / 2456 | 0 |
-| SF-03 | mid · phone | 1170×2532 | 15 / 18 | 30,482 | 34 / 11 / 37 / 57 / 76 / 205 | 0.0% | 0.0% | 259 / 2049 | 0 |
-| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,200 | 14 / 1 / 9 / 42 / 157 / 214 | 14.9% | 0.0% | 199 / 2094 | 0 |
-| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,976 | 14 / 1 / 10 / 41 / 157 / 213 | 14.8% | 0.0% | 196 / 1932 | 0 |
-| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 57 / 0 / 70 / 97 / 159 / 229 | 13.0% | 0.0% | 320 / 4339 | 0 |
-| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 62 / 1 / 80 / 96 / 155 / 229 | 8.8% | 0.0% | 311 / 3688 | 0 |
-| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 22 / 61 / 143 / 210 | 0.0% | 0.0% | 244 / 1995 | 0 |
-| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 27 / 10 / 21 / 61 / 143 / 210 | 0.0% | 0.0% | 236 / 1851 | 0 |
-| SF-07 | high · desktop | 2560×1440 | 32 / 80 | 7,712 | 27 / 1 / 6 / 172 / 201 / 237 | 25.2% | 0.0% | 459 / 3366 | 0 |
-| SF-07 | mid · desktop | 2560×1440 | 32 / 35 | 3,488 | 27 / 1 / 6 / 172 / 201 / 237 | 25.1% | 0.0% | 373 / 2107 | 0 |
-| SF-07 | high · phone | 1170×2532 | 32 / 80 | 7,712 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 329 / 2607 | 0 |
-| SF-07 | mid · phone | 1170×2532 | 32 / 35 | 3,488 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 331 / 2482 | 0 |
-| SF-07b | high · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 210 / 493 | 0 |
-| SF-07b | mid · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 207 / 461 | 0 |
-| SF-07b | high · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 208 / 472 | 0 |
-| SF-07b | mid · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 206 / 473 | 0 |
-| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 290 / 942 | 0 |
-| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 296 / 1302 | 0 |
+| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 254 | 0.0% | 0.0% | 215 / 2697 | 0 |
+| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 250 | 0.0% | 0.0% | 204 / 2525 | 0 |
+| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 342 / 2319 | 0 |
+| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 409 / 2893 | 0 |
+| SF-03 | high · desktop | 2560×1440 | 15 / 46 | 30,482 | 30 / 11 / 33 / 56 / 98 / 223 | 0.6% | 0.0% | 317 / 1798 | 0 |
+| SF-03 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 29 / 10 / 32 / 56 / 84 / 220 | 0.6% | 0.0% | 282 / 1803 | 0 |
+| SF-03 | high · phone | 1170×2532 | 15 / 46 | 30,482 | 35 / 11 / 37 / 57 / 94 / 218 | 0.0% | 0.0% | 382 / 2911 | 0 |
+| SF-03 | mid · phone | 1170×2532 | 15 / 18 | 30,482 | 34 / 11 / 37 / 57 / 76 / 205 | 0.0% | 0.0% | 301 / 2543 | 0 |
+| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,200 | 14 / 1 / 9 / 42 / 157 / 214 | 14.9% | 0.0% | 320 / 3416 | 0 |
+| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,976 | 14 / 1 / 10 / 41 / 157 / 213 | 14.8% | 0.0% | 285 / 2771 | 0 |
+| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 57 / 0 / 70 / 97 / 159 / 229 | 13.0% | 0.0% | 363 / 4313 | 0 |
+| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 62 / 1 / 80 / 96 / 155 / 229 | 8.8% | 0.0% | 291 / 4383 | 0 |
+| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 22 / 61 / 143 / 210 | 0.0% | 0.0% | 241 / 2055 | 0 |
+| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 27 / 10 / 21 / 61 / 143 / 210 | 0.0% | 0.0% | 230 / 1997 | 0 |
+| SF-07 | high · desktop | 2560×1440 | 32 / 80 | 7,712 | 27 / 1 / 6 / 172 / 201 / 237 | 25.2% | 0.0% | 236 / 1704 | 0 |
+| SF-07 | mid · desktop | 2560×1440 | 32 / 35 | 3,488 | 27 / 1 / 6 / 172 / 201 / 237 | 25.1% | 0.0% | 230 / 1445 | 0 |
+| SF-07 | high · phone | 1170×2532 | 32 / 80 | 7,712 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 232 / 1914 | 0 |
+| SF-07 | mid · phone | 1170×2532 | 32 / 35 | 3,488 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 274 / 1526 | 0 |
+| SF-07b | high · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 163 / 368 | 0 |
+| SF-07b | mid · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 165 / 357 | 0 |
+| SF-07b | high · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 174 / 376 | 0 |
+| SF-07b | mid · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 162 / 353 | 0 |
+| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 358 / 894 | 0 |
+| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 272 / 697 | 0 |
 <!-- /run-table -->
 
 The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers except where bloom is involved: bloom kernels are fixed in pixels, so at quarter size the glow spread about 4× wider.
@@ -298,7 +300,7 @@ The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers ex
 `objects.html` builds every §3.2 / §3.3 hero object with its production kit, counts it against its budget, and renders lit turnarounds (front, side, back, ¾) on a graphite studio set. The objects job in CI captures it into the gallery's OBJECTS section and fails on any over-budget row unless the row is marked CEILING with a written reason and fallback (§2.5 rule 5).
 
 <!-- objects-table -->
-Run 25, objects gate: pass.
+Run 27, objects gate: pass.
 
 | Object | Measured | Budget | Draw calls | Result | Notes |
 |---|---|---|---|---|---|
@@ -502,6 +504,38 @@ CI results, screenshots and the SwiftShader reference numbers are in the [galler
 
 **G6 blockers that need a person:** device fps (laptop and phone, `?bench=1`, Copy the result into an issue or message), freeze feel, the hosting decision, the generic audit.
 
+## G7 assets
+
+The `assets` CI job turns the signed kits into the §7.1 assets. `assets.html?mode=export` builds each static prop from its kit and exports a raw GLB, with the shader recipe in `extras.axiel` and the uniform textures beside it. `tools/bake.py` bakes ambient occlusion onto the city ground and the strata cliff in Blender 4.2 (headless, Cycles CPU). `tools/pack.mjs` runs gltf-transform (Draco, then KTX2: ETC1S for colour, UASTC for normals, occlusion and roughness), the Khronos glTF validator and the KTX2 sidecars. Finally `assets.html?mode=verify` loads every packed GLB back, renders it beside its kit and checks the budgets. Deploy publishes the packed files at `/glb/`; the live check is https://notsofatfredd.github.io/axiel-style-frames/assets.html?mode=verify (heavy).
+
+**Plan critique (written before the build, kept here so the review can check it was followed):**
+- *Riskiest part:* the kit materials. The detail (world-space grain, carving, façade windows, wax relief) is shader code that glTF cannot hold. A plain GLB export would lose the look the CD signed. So the recipe rides in `extras.axiel` and the site rebuilds the material from the same kit code (P7-2). A GLB that renders differently from its kit fails the match gate (P7-5).
+- *"Bake lighting" would fight the scenes:* the city is relit for dusk, rain and the lit windows, the strata for the seam. Only the occlusion is truly static, so only the occlusion is baked (P7-1).
+- *Blender in CI:* no hand modelling, no .blend files; Blender runs once per build on the exported geometry and its output is checked (mean in range, size, UV channel). If the bake ever fails, the scenes still render without it.
+- *The budgets count what a visitor downloads:* the decoders (Draco, Basis) are inside the 12 MB and 6 MB, and desktop and mobile are measured as separate sets (P7-6).
+- *What could fail the gate:* Draco quantisation moving the carving or the window grid by a pixel, or ETC1S colour banding on the wax. The match is checked in three views per asset (two aerial views for the city), AO off, so the bake cannot hide a mismatch.
+
+**Checklist (protocol G7):**
+
+| Item | Status |
+|---|---|
+| All assets exported, compressed, named | **Built.** Nine GLBs named `scene_object_variant_v1` (P7-3), Draco + KTX2, validator clean; table in the gallery |
+| Turntables / code previews match style frames | **Built.** Kit, GLB and difference image per view, in the gallery; code-native objects keep their G3 previews |
+| Budgets met | **Checked in CI.** 3D download per set against 12 MB / 6 MB with decoders; texture memory estimated against 256 MB / 96 MB (P7-7); calls and triangles per asset |
+| Generic audit | Needs a person |
+
+<!-- g7-review -->
+**G7 self-review:** pending the first CI run of the asset job.
+<!-- /g7-review -->
+
+**For the CD (G7):**
+1. **Code, not Blender (P7-8).** The props are the signed kits exported, so there is nothing hand-modelled to approve separately. Confirm that is acceptable against §7.1 step 1.
+2. **AO only (P7-1)** instead of a full light bake. Compare the AO on/off pair in the gallery.
+3. **The strata cliff as a GLB (P7-4)**, so its lightmap has a surface to land on.
+4. **Specimens are still placeholders** (G3 open item); they ship through the pipeline so the budgets are real.
+
+**G7 blockers that need a person:** the generic audit, the four calls above, and the real specimens.
+
 ## Files
 
 ```
@@ -532,10 +566,15 @@ tools/objects.mjs       captures the objects page, budget gate
 tools/animatic.mjs      records the animatic: storyboard, MP4s, plot map, clearance.md, timing.md
 docs/clearance.md       G4 clearance report from the last animatic run
 tools/proto.mjs         G6 prototype checks in headless Chromium: mount, freeze, labels, reverse scroll, screenshots
-docs/proposals.md       G6 PROPOSED decisions (P6-1 to P6-13)
+docs/proposals.md       PROPOSED decisions (G6: P6-1 to P6-13, G7: P7-1 to P7-8)
 docs/ceilings.md        known limits, logged as the protocol asks
-tools/gallery.py        merges frames, Cartographer, objects, animatic and prototype checks into the Pages gallery
-.github/workflows/render.yml  the render, carto, objects, animatic, proto, collect and deploy jobs
+assets.html             G7 export (?mode=export) and match / budget check (?mode=verify)
+js/kit/glb.js           G7 GLB export and load: kit recipe in extras.axiel, KTX2 sidecars
+tools/assets.mjs        drives assets.html: writes the raw GLBs, saves the check images, assets.json and assets.md
+tools/bake.py           Blender AO bake onto TEXCOORD_1 (headless)
+tools/pack.mjs          gltf-transform Draco + KTX2, glTF validator, sidecars, download sets
+tools/gallery.py        merges frames, Cartographer, objects, animatic, prototype and asset checks into the Pages gallery
+.github/workflows/render.yml  the render, carto, objects, animatic, proto, assets, collect and deploy jobs
 site/                   G6 Next.js app (static export): app/, components/ (camera, scenes, overlay), lib/, shaders/
 assets/                 approved raster lockup and symbol
 ```

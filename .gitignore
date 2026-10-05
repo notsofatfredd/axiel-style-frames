@@ -10,3 +10,8 @@ docs/*
 !docs/proposals.md
 !docs/ceilings.md
 __pycache__/
+# G7 build outputs (CI builds them from the kits every run; Pages gets glb/ from the run)
+g7/
+g7check/
+glb/
+node_modules/
