@@ -57,8 +57,11 @@ const TEAR_GLSL = /* glsl */`
     float hw = 0.03 * smoothstep(0.0, 0.08, u) + ${WALL.tearHW.toFixed(2)} * pow(smoothstep(0.25, 1.0, u), 1.3);  // then tears open
     float dx = p.x - crackX(p.y), sd = sign(dx);
     float ty = clamp(p.y / max(hl, 1e-3), -1.0, 1.0);
-    float jag = 1.0 + 0.2 * sin(7.3 * p.y + 1.0 + 2.0 * sd) + 0.1 * sin(17.1 * p.y + 2.0 + 3.0 * sd) + 0.045 * sin(43.0 * p.y + sd);
-    return max(abs(dx) - hw * pow(max(1.0 - ty * ty, 0.0), 0.6) * jag, abs(p.y) - hl);
+    // each side its own broad, uneven bulge (scales with the opening), plus a fibre jag of fixed size
+    // (scaling the jag with the width read as a regular sawtooth once fully open)
+    float bulge = 1.0 + 0.16 * sin(2.3 * p.y + 1.0 + 2.5 * sd) + 0.09 * sin(5.9 * p.y + 2.0 + 1.7 * sd);
+    float fibre = (0.09 * sin(9.7 * p.y + 3.0 * sd) + 0.05 * sin(23.1 * p.y + 1.0 + sd) + 0.025 * sin(51.0 * p.y + 2.0 * sd)) * min(hw, 1.0);
+    return max(abs(dx) - (hw * pow(max(1.0 - ty * ty, 0.0), 0.6) * bulge + fibre), abs(p.y) - hl);
   }`;
 
 export function makePaperWall(o = {}) {
