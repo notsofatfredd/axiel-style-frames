@@ -12,9 +12,10 @@ Every frame is rendered in three.js 0.169 from the protocol's camera keys (§4.3
 | G3 hero objects | **Self-reviewed (2 passes), awaiting CD signature.** Every object inside budget, all eight Cartographer animations and the dart built. Human blockers listed under [G3](#g3-hero-objects). |
 | G4 camera path and animatic | **Self-reviewed (2 passes), awaiting CD signature.** Clearance and legibility pass on desktop and phone; storyboard and 1080p animatic in the gallery. Human blockers listed under [G4](#g4-camera-path-and-animatic). |
 | G5 motion lock | **Self-reviewed (2 passes), awaiting CD signature.** All timing checks, the seven carriers and the reverse-scroll test pass on both viewports in every camera mode. Human blockers listed under [G5](#g5-motion-lock). |
-| G6 technical prototype | **Built, in CI review.** AMOS first, on the production stack. See [G6](#g6-technical-prototype-amos). |
-| G7 assets | **Built, in CI review.** Nine GLBs from the kits, AO baked, Draco + KTX2. See [G7](#g7-assets). |
-| G8 to G11 | Not started. |
+| G6 technical prototype | **Self-reviewed (2 passes), awaiting CD signature.** Every behaviour check passes on desktop and phone. Human blockers: fps on a real laptop and phone, freeze feel, hosting. See [G6](#g6-technical-prototype-amos). |
+| G7 assets | **Self-reviewed (2 passes), awaiting CD signature.** Nine GLBs match their kits, inside every budget. Human blockers listed under [G7](#g7-assets). |
+| G8 integration | **In progress.** The whole scroll as one scene; see [G8](#g8-integration). |
+| G9 to G11 | Not started. |
 
 No gate is signed by the build itself. "Self-reviewed" means every checklist item was checked against the renders, not that it is approved.
 
@@ -258,34 +259,34 @@ Headless numeric check only; the visual review is above. All 24 deliverable PNGs
 Budgets (§7.2): desktop ≤ 150 calls and ≤ 500k triangles; phone ≤ 80 calls and ≤ 150k triangles. "Calls" is scene calls / total calls including the post chain. Every frame is inside budget. Phone SF-07 high uses 78 of 80 total calls; 47 of those are the post chain, not the scene.
 
 <!-- run-table -->
-Run 27.
+Run 37329543014.
 
 | Frame | Tier · viewport | Size | Calls (scene / total) | Triangles | Luminance | Near-black | ≥ 250 | Build / render ms | Errors |
 |---|---|---|---|---|---|---|---|---|---|
-| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 254 | 0.0% | 0.0% | 215 / 2697 | 0 |
-| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 250 | 0.0% | 0.0% | 204 / 2525 | 0 |
-| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 342 / 2319 | 0 |
-| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 28 / 0 / 24 / 87 / 98 / 165 | 38.9% | 0.0% | 409 / 2893 | 0 |
-| SF-03 | high · desktop | 2560×1440 | 15 / 46 | 30,482 | 30 / 11 / 33 / 56 / 98 / 223 | 0.6% | 0.0% | 317 / 1798 | 0 |
-| SF-03 | mid · desktop | 2560×1440 | 15 / 18 | 30,482 | 29 / 10 / 32 / 56 / 84 / 220 | 0.6% | 0.0% | 282 / 1803 | 0 |
-| SF-03 | high · phone | 1170×2532 | 15 / 46 | 30,482 | 35 / 11 / 37 / 57 / 94 / 218 | 0.0% | 0.0% | 382 / 2911 | 0 |
-| SF-03 | mid · phone | 1170×2532 | 15 / 18 | 30,482 | 34 / 11 / 37 / 57 / 76 / 205 | 0.0% | 0.0% | 301 / 2543 | 0 |
-| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,200 | 14 / 1 / 9 / 42 / 157 / 214 | 14.9% | 0.0% | 320 / 3416 | 0 |
-| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,976 | 14 / 1 / 10 / 41 / 157 / 213 | 14.8% | 0.0% | 285 / 2771 | 0 |
-| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 57 / 0 / 70 / 97 / 159 / 229 | 13.0% | 0.0% | 363 / 4313 | 0 |
-| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 62 / 1 / 80 / 96 / 155 / 229 | 8.8% | 0.0% | 291 / 4383 | 0 |
-| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 22 / 61 / 143 / 210 | 0.0% | 0.0% | 241 / 2055 | 0 |
-| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 27 / 10 / 21 / 61 / 143 / 210 | 0.0% | 0.0% | 230 / 1997 | 0 |
-| SF-07 | high · desktop | 2560×1440 | 32 / 80 | 7,712 | 27 / 1 / 6 / 172 / 201 / 237 | 25.2% | 0.0% | 236 / 1704 | 0 |
-| SF-07 | mid · desktop | 2560×1440 | 32 / 35 | 3,488 | 27 / 1 / 6 / 172 / 201 / 237 | 25.1% | 0.0% | 230 / 1445 | 0 |
-| SF-07 | high · phone | 1170×2532 | 32 / 80 | 7,712 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 232 / 1914 | 0 |
-| SF-07 | mid · phone | 1170×2532 | 32 / 35 | 3,488 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 274 / 1526 | 0 |
-| SF-07b | high · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 163 / 368 | 0 |
-| SF-07b | mid · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 165 / 357 | 0 |
-| SF-07b | high · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 174 / 376 | 0 |
-| SF-07b | mid · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 162 / 353 | 0 |
-| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 358 / 894 | 0 |
-| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 272 / 697 | 0 |
+| SF-01 | high · desktop | 2560×1440 | 1 / 18 | 2 | 235 / 230 / 236 / 243 / 245 / 254 | 0.0% | 0.0% | 252 / 2689 | 0 |
+| SF-01 | mid · desktop | 2560×1440 | 1 / 4 | 2 | 235 / 230 / 236 / 243 / 245 / 250 | 0.0% | 0.0% | 202 / 2466 | 0 |
+| SF-02 | high · desktop | 2560×1440 | 15 / 18 | 38,106 | 28 / 0 / 24 / 87 / 98 / 193 | 38.9% | 0.0% | 444 / 3184 | 0 |
+| SF-02 | mid · desktop | 2560×1440 | 15 / 18 | 38,106 | 28 / 0 / 24 / 87 / 98 / 193 | 38.9% | 0.0% | 387 / 2354 | 0 |
+| SF-03 | high · desktop | 2560×1440 | 13 / 42 | 38,102 | 31 / 11 / 32 / 57 / 113 / 227 | 0.2% | 0.0% | 315 / 1634 | 0 |
+| SF-03 | mid · desktop | 2560×1440 | 13 / 16 | 38,102 | 29 / 11 / 32 / 57 / 98 / 227 | 0.2% | 0.0% | 288 / 1520 | 0 |
+| SF-03 | high · phone | 1170×2532 | 13 / 42 | 38,102 | 35 / 11 / 37 / 57 / 94 / 218 | 0.0% | 0.0% | 318 / 2590 | 0 |
+| SF-03 | mid · phone | 1170×2532 | 13 / 16 | 38,102 | 34 / 11 / 37 / 57 / 76 / 205 | 0.0% | 0.0% | 316 / 2288 | 0 |
+| SF-04 | high · desktop | 2560×1440 | 34 / 84 | 8,200 | 14 / 1 / 9 / 42 / 157 / 214 | 14.9% | 0.0% | 312 / 2747 | 0 |
+| SF-04 | mid · desktop | 2560×1440 | 34 / 37 | 3,976 | 14 / 1 / 10 / 41 / 157 / 213 | 14.8% | 0.0% | 294 / 2365 | 0 |
+| SF-05 | high · desktop | 2560×1440 | 57 / 130 | 36,018 | 57 / 0 / 70 / 97 / 159 / 229 | 13.0% | 0.0% | 382 / 4505 | 0 |
+| SF-05 | mid · desktop | 2560×1440 | 57 / 60 | 31,794 | 62 / 1 / 80 / 96 / 155 / 229 | 8.8% | 0.0% | 302 / 3768 | 0 |
+| SF-06 | high · desktop | 2560×1440 | 39 / 42 | 334,478 | 28 / 10 / 22 / 61 / 143 / 210 | 0.0% | 0.0% | 315 / 2682 | 0 |
+| SF-06 | mid · desktop | 2560×1440 | 39 / 42 | 141,854 | 27 / 10 / 21 / 61 / 143 / 210 | 0.0% | 0.0% | 340 / 2621 | 0 |
+| SF-07 | high · desktop | 2560×1440 | 32 / 80 | 7,712 | 27 / 1 / 6 / 172 / 201 / 237 | 25.2% | 0.0% | 338 / 2883 | 0 |
+| SF-07 | mid · desktop | 2560×1440 | 32 / 35 | 3,488 | 27 / 1 / 6 / 172 / 201 / 237 | 25.1% | 0.0% | 335 / 2023 | 0 |
+| SF-07 | high · phone | 1170×2532 | 32 / 80 | 7,712 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 340 / 2611 | 0 |
+| SF-07 | mid · phone | 1170×2532 | 32 / 35 | 3,488 | 53 / 1 / 10 / 197 / 201 / 240 | 19.9% | 0.0% | 347 / 2476 | 0 |
+| SF-07b | high · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 203 / 470 | 0 |
+| SF-07b | mid · desktop | 2560×1440 | 1 / 4 | 2 | 210 / 204 / 210 / 230 / 240 / 252 | 0.0% | 0.0% | 195 / 464 | 0 |
+| SF-07b | high · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 205 / 495 | 0 |
+| SF-07b | mid · phone | 1170×2532 | 1 / 4 | 2 | 209 / 198 / 209 / 237 / 244 / 253 | 0.0% | 0.0% | 195 / 462 | 0 |
+| SF-08 | high · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 280 / 959 | 0 |
+| SF-08 | mid · desktop | 2560×1440 | 11 / 14 | 33,540 | 226 / 136 / 235 / 243 / 245 / 251 | 0.0% | 0.0% | 268 / 1234 | 0 |
 <!-- /run-table -->
 
 The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers except where bloom is involved: bloom kernels are fixed in pixels, so at quarter size the glow spread about 4× wider.
@@ -300,24 +301,24 @@ The earlier quarter-size check (`?check=1`, 2026-10-02) matches these numbers ex
 `objects.html` builds every §3.2 / §3.3 hero object with its production kit, counts it against its budget, and renders lit turnarounds (front, side, back, ¾) on a graphite studio set. The objects job in CI captures it into the gallery's OBJECTS section and fails on any over-budget row unless the row is marked CEILING with a written reason and fallback (§2.5 rule 5).
 
 <!-- objects-table -->
-Run 27, objects gate: pass.
+Run 37329543014, objects gate: pass.
 
 | Object | Measured | Budget | Draw calls | Result | Notes |
 |---|---|---|---|---|---|
 | Paper wall | 18,304 tris | ≤ 20,000 | 1 | PASS | one mesh for crack → hole: tear is shader displacement + alpha mask (uOpen) |
-| Strata cliff + 12 specimens | 27,602 tris | ≤ 45,000 | 9 | PASS | cliff 24578 + specimens 3024 |
-| Specimen No. 002 (graph) | 684 tris | ≤ 1,500 | 5 | PASS | placeholder artefact |
-| Specimen No. 003 (site) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 004 (symbol) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 005 (graph) | 684 tris | ≤ 1,500 | 5 | PASS | placeholder artefact |
-| Specimen No. 006 (site) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 007 (symbol) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 008 (site) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 009 (symbol) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 010 (graph) | 684 tris | ≤ 1,500 | 5 | PASS | placeholder artefact |
-| Specimen No. 011 (site) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 012 (symbol) | 36 tris | ≤ 1,500 | 4 | PASS | placeholder artefact |
-| Specimen No. 013 (graph) | 684 tris | ≤ 1,500 | 5 | PASS | placeholder artefact |
+| Strata cliff + 12 specimens | 31,414 tris | ≤ 45,000 | 9 | PASS | cliff 24578 + specimens 6836 |
+| Specimen No. 002 (graph) | 588 tris | ≤ 1,500 | 5 | PASS | ATLAS |
+| Specimen No. 003 (symbol) | 36 tris | ≤ 1,500 | 4 | PASS | The AXIEL symbol |
+| Specimen No. 004 (graph) | 772 tris | ≤ 1,500 | 5 | PASS | Autonomous Content Pipeline · ATL-26218 |
+| Specimen No. 005 (graph) | 668 tris | ≤ 1,500 | 5 | PASS | SEO Agent · ATL-26220 |
+| Specimen No. 006 (site) | 36 tris | ≤ 1,500 | 4 | PASS | axiel.co.za |
+| Specimen No. 007 (graph) | 680 tris | ≤ 1,500 | 5 | PASS | Workflow Agent · ATL-26222 |
+| Specimen No. 008 (graph) | 784 tris | ≤ 1,500 | 5 | PASS | AXIEL Marketplace Demo · ATL-26241 |
+| Specimen No. 009 (graph) | 588 tris | ≤ 1,500 | 5 | PASS | Snipe Console · ATL-26244 |
+| Specimen No. 010 (graph) | 680 tris | ≤ 1,500 | 5 | PASS | DevOS · ATL-26245-B |
+| Specimen No. 011 (graph) | 576 tris | ≤ 1,500 | 5 | PASS | AXIEL Backend Template V2 |
+| Specimen No. 012 (graph) | 760 tris | ≤ 1,500 | 5 | PASS | The Gallery Beneath |
+| Specimen No. 013 (graph) | 668 tris | ≤ 1,500 | 5 | PASS | AXIEL Backend |
 | City fill (High) | 206 instances | ≤ 400 | 3 | PASS | 2,472 tris as drawn; Mid tier 30 instances |
 | Fault building · empty | 1,252 tris | ≤ 2,000 | 13 | PASS | largest: Buffer 806, Extrude 360, Buffer 36 |
 | Fault building · repaired | 1,266 tris | ≤ 2,000 | 15 | PASS | largest: Buffer 770, Extrude 360, Buffer 48 |
@@ -513,7 +514,14 @@ Changed at G5 (PROPOSED): new hold key **K9h** at 0.42 (the camera holds on the 
 CI results, screenshots and the SwiftShader reference numbers are in the [gallery G6 section](https://notsofatfredd.github.io/axiel-style-frames/gallery/#proto). Decisions the build made are in [`docs/proposals.md`](docs/proposals.md) (P6-1 to P6-13); known limits in [`docs/ceilings.md`](docs/ceilings.md).
 
 <!-- g6-review -->
-**G6 self-review:** pending the first CI run of the prototype.
+**G6 self-review:**
+
+| Pass | Reviewed | Fixed in | Main fixes |
+|---|---|---|---|
+| 1 | First proto runs | `acc9a37`, `bf7360c` | The freeze, release and un-type checks timed in milliseconds and failed on SwiftShader's 0.5 to 2 s frames; they now count frames and read the freeze decision log, so they test behaviour, not the runner's speed |
+| 2 | Run 37329543014 (all 25 checks pass on both viewports) | run RUNX | On the phone the five labels sat on separate drops but their text stacked in two pairs (A11Y 98 over LCP 1.2s, NAV PASS over CLS 0.02). A drop is now only taken if its label box clears the others, and CI checks the boxes do not overlap. The desktop GPU name was read before the canvas existed; the check now waits for it. The build time is reported per viewport (the 375 s on the phone was time since the script started, not a slow build) |
+
+Reference only, SwiftShader on a CPU runner: 0.9 fps desktop High (8,000 drops, 60 calls, 443k triangles), 2.7 fps phone Mid (2,000 drops, 39 calls, 73k triangles). The call and triangle counts are what carry over to a real GPU; both sit well inside §10.1.
 <!-- /g6-review -->
 
 **For the CD (G6):**
@@ -544,7 +552,14 @@ The `assets` CI job turns the signed kits into the §7.1 assets. `assets.html?mo
 | Generic audit | Needs a person |
 
 <!-- g7-review -->
-**G7 self-review:** pending the first CI run of the asset job.
+**G7 self-review:**
+
+| Pass | Reviewed | Fixed in | Main fixes |
+|---|---|---|---|
+| 1 | First asset runs | `2e352c8` | pack did not create its output folder; CLI failures now print their output |
+| 2 | Run 37329543014 (nine GLBs pass, worst match 0.09% mean / 0.47% moved) | run RUNX | The worst match, the repaired fault building, had all of its difference in the printed text of the share card: ETC1S blocks softened the glyphs a reader is meant to read in SF-07. The card's colour texture is now packed UASTC (textures named `text_*`); everything else stays ETC1S. The nameplate lettering was already a UASTC sidecar |
+
+Budgets with room: 3.8 MB of 12 MB desktop and 6 MB mobile, texture memory 28 MB of 256 MB / 96 MB. The AO pair reads as intended: contact darkening at the building feet and in the lanes, nothing on open ground.
 <!-- /g7-review -->
 
 **For the CD (G7):**
@@ -554,6 +569,17 @@ The `assets` CI job turns the signed kits into the §7.1 assets. `assets.html?mo
 4. **The twelve specimens** (PROPOSED at G3) ship as `strata_specimens_v1`.
 
 **G7 blockers that need a person:** the generic audit, the four calls above.
+
+## G8 integration
+
+G8 joins every scene into the one scroll on the G6 stack: Surface, Fall, INDEX, DEVOS, AMOS, Proof, Return, Close. The proto page grows from AMOS only to the whole site; the same `proto` CI job checks it scene by scene.
+
+**Plan critique (written before the build, kept here so the review can check it was followed):**
+- *Riskiest part:* the seams between scenes. Each frame was lit and graded on its own. Mounting and unmounting scenes on scroll would stall on shader compiles exactly where the camera is moving fastest (the fall, the glide, the return through the tear). So the build is one scene with three worlds that are built once after Surface and never disposed: the wall (Surface, Return, Close), the chasm (Fall, the climb), the city (INDEX, DEVOS, AMOS, Proof). Every program is precompiled before it is needed (PROPOSED, P8-1).
+- *One look at a time:* a table of owners says which world sets the lights, fog and clear colour at each p, and the looks from the frames crossfade over the scene boundaries instead of cutting. Fog is always exponential so a change of density never recompiles a material (P8-2).
+- *The post chain the frames use:* selective bloom on High only, with each scene's bloom settings from its frame; tone mapping on the output pass only, so a flat paper scene and a lit night scene share one material set (P8-3).
+- *Reverse scroll:* every motion stays a pure function of p (the G5 rule), so the existing down-and-up comparison is extended to the whole scroll.
+- *What could fail the gate:* memory and first-load time with three worlds resident, and the tear: the camera passes through the wall twice. The G7 budgets and the K19 clearance (1.59 desk, 1.98 phone) are re-checked against the integrated scene.
 
 ## Files
 

@@ -77,13 +77,24 @@ export async function buildAmos({ renderer, tier, size }: { renderer: THREE.WebG
     pickLabels(camera: THREE.PerspectiveCamera, W: number, H: number, phone: boolean): Label[] {
       k16.aspect = W / H;
       applyCamera(k16, K16_P, phone);
-      const m = phone ? 24 : 64, t = rain.uniforms.uTime.value, out: Label[] = [];
+      const m = phone ? 24 : 64, t = rain.uniforms.uTime.value, out: Label[] = [], boxes: { x0: number; x1: number; ey: number }[] = [];
       const toScreen = (p: THREE.Vector3, cam: THREE.Camera) => { const q = p.clone().project(cam); return { x: (q.x * 0.5 + 0.5) * W, y: (0.5 - q.y * 0.5) * H, z: q.z }; };
       camera.getWorldPosition(c);
       for (const L of LABELS as { t: string; at: number[]; off: number[] }[]) {
         const a = toScreen(v.set(L.at[0], L.at[1], L.at[2]), k16);
         const tx = Math.min(Math.max(a.x, m + 10), W - m - 10), ty = Math.min(Math.max(a.y, m), H - m);
-        let best = -1, bd = 220, bx = 0, by = 0;
+        const tw = L.t.length * LABEL_PX * 0.66, hh = LABEL_PX * 0.5 + 8;
+        const fit = (r: boolean, x: number) => (r ? Math.min(x, W - m - tw - 6) : Math.max(x, m + tw + 6));
+        const place = (ax: number, ay: number) => {
+          let right = L.off[0] > 0, ex = fit(right, ax + L.off[0]);
+          if (right ? ex < ax + 16 : ex > ax - 16) { right = !right; ex = fit(right, ax - L.off[0]); }   // no room outboard: hang it inboard
+          const ey = Math.min(Math.max(ay + L.off[1], m * 0.6), H - m * 0.6);
+          return { right, ex, ey, x0: right ? ex : ex - tw, x1: right ? ex + tw : ex };
+        };
+        // G6 review: on phone the anchors were apart but the text boxes stacked; a drop is only taken if its label clears the others.
+        const clear = (b: { x0: number; x1: number; ey: number }) =>
+          !boxes.some((o) => b.x0 < o.x1 + 10 && b.x1 > o.x0 - 10 && Math.abs(b.ey - o.ey) < 2 * hh);
+        let best = -1, bd = phone ? 420 : 220, bx = 0, by = 0, bp: ReturnType<typeof place> | null = null;
         for (let i = 0; i < rain.n; i++) {
           const d = rain.dropAt(i, t, state.intensity, v);
           if (!d) continue;
@@ -93,15 +104,14 @@ export async function buildAmos({ renderer, tier, size }: { renderer: THREE.WebG
           if (s.z > 1 || s.x < m || s.x > W - m || s.y < m * 0.6 || s.y > H - m * 0.6) continue;
           if (out.some((o) => Math.hypot(o.ax - s.x, o.ay - s.y) < 48)) continue;
           const e = Math.hypot(s.x - tx, s.y - ty);
-          if (e < bd) { bd = e; best = i; bx = s.x; by = s.y; }
+          if (e >= bd) continue;
+          const pl = place(s.x, s.y);
+          if (!clear(pl)) continue;
+          bd = e; best = i; bx = s.x; by = s.y; bp = pl;
         }
-        if (best < 0) continue;
-        const tw = L.t.length * LABEL_PX * 0.66;
-        let right = L.off[0] > 0, ex = bx + L.off[0], ey = by + L.off[1];
-        const fit = (r: boolean, x: number) => (r ? Math.min(x, W - m - tw - 6) : Math.max(x, m + tw + 6));
-        ex = fit(right, ex);
-        if (right ? ex < bx + 16 : ex > bx - 16) { right = !right; ex = fit(right, bx - L.off[0]); }   // no room outboard: hang it inboard
-        ey = Math.min(Math.max(ey, m * 0.6), H - m * 0.6);
+        if (best < 0 || !bp) continue;
+        const { right, ex, ey } = bp;
+        boxes.push(bp);
         out.push({ text: L.t, ax: bx, ay: by, x: ex, y: ey, side: right ? 'r' : 'l', drop: best });
       }
       return out;

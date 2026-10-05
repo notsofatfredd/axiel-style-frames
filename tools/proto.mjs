@@ -48,9 +48,11 @@ for (const vp of VPS) {
   const fps = () => page.evaluate(() => new Promise((r) => { const t = []; const f = (n) => { t.push(n); if (t.length < 31) requestAnimationFrame(f); else { const d = t.slice(1).map((v, i) => v - t[i]).sort((a, b) => a - b); r({ fps: 1000 / (d.reduce((a, b) => a + b, 0) / d.length), worstMs: d[d.length - 1] }); } }; requestAnimationFrame(f); }));
   const out = { id: vp.id, label: vp.label, checks, perf: {}, shots: [] };
 
+  const tv = Date.now();
   try {
     await page.goto(`${URL_}?p=0.5&tier=${vp.tier}`, { timeout: 180000, waitUntil: 'load' });
     await page.waitForFunction(() => window.__axiel && window.__axiel.state, null, { timeout: 120000 });
+    await waitFor(() => !!window.__axiel.state().gpu, null, 30000);   // onCreated can land after __axiel on a cold start
     await frames(5);
     const s0 = await st();
     check('Starts outside AMOS with nothing mounted', !s0.mounted.includes('amos') && near(s0.p, 0.5, 0.002), `p ${s0.p.toFixed(3)}, mounted [${s0.mounted}]`);
@@ -71,7 +73,7 @@ for (const vp of VPS) {
     await toP(0.6);
     const ready = await waitFor(() => window.__axiel.state().ready.includes('amos'), null, 240000);
     const a0 = await amos();
-    check('AMOS mounts and builds inside its range', ready, `ready at p 0.60 in ${((Date.now() - t0) / 1000).toFixed(0)} s since start`);
+    check('AMOS mounts and builds inside its range', ready, `ready at p 0.60, ${((Date.now() - tv) / 1000).toFixed(0)} s after this viewport loaded`);
     check('Tier settings applied (§10.1)', a0 && a0.drops === vp.drops && a0.reflect === vp.reflect, a0 ? `${a0.drops} drops, planar reflection ${a0.reflect ? 'on' : 'off'}, kinds ${JSON.stringify(a0.kinds)}` : 'no amos');
     await toP(0.86);
     const gone = await waitFor(() => !window.__axiel.state().mounted.includes('amos'), null, 10000);
@@ -151,6 +153,15 @@ for (const vp of VPS) {
     check('Labels and their drops are on screen', inView, labs.map((l) => `${l.text} (${l.ax.toFixed(0)},${l.ay.toFixed(0)})→(${l.x.toFixed(0)},${l.y.toFixed(0)}) ${l.side}`).join('; '));
     const typedOk = await waitFor((d4) => { const el = [...document.querySelectorAll('.drop-label')]; return el.length === 5 && d4.every((t) => el.some((e) => e.textContent === t)); }, D4, 4000);
     check('Labels type in fully (40 ms per char)', typedOk, '');
+    const hits = await page.evaluate(() => {
+      const r = [...document.querySelectorAll('.drop-label')].map((e) => ({ t: e.textContent, b: e.getBoundingClientRect() })), o = [];
+      for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+        const a = r[i].b, b = r[j].b;
+        if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) o.push(`${r[i].t} / ${r[j].t}`);
+      }
+      return o;
+    });
+    check('Label text boxes do not overlap', hits.length === 0, hits.join('; ') || 'clear');
     const aria = await page.evaluate(() => document.querySelector('.drop-labels')?.getAttribute('aria-label') ?? '');
     check('Readings exposed to assistive tech as one sentence', D4.every((t) => aria.includes(t)), aria);
     const ff = `proto-${vp.id}-p79-frozen.png`;

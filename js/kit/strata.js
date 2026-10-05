@@ -92,7 +92,10 @@ function carveCanvas() {
 const STRATA_PARS = /* glsl */`
 uniform sampler2D uCarve; uniform vec3 uLineY; uniform float uB[13];
 uniform float uVein, uCarveGlow, uPanelW; uniform vec3 uGraph, uStoneC, uGoldC, uHot, uDress;
-float fV, fVc, fM, fMa, fD, fPar, fBand;
+// G8 (site): uFront = height the vein light has climbed to (veins ignite from the bedrock up), uTrace = how far each
+// carved line has been traced (lines 1-3); the defaults (1000, 1 1 1) are the frames' look
+uniform float uFront; uniform vec3 uTrace;
+float fV, fVc, fM, fMa, fD, fPar, fBand, fTr;
 // vein field: stretched along the bedding (x) and domain-warped, so its isolines run as meandering cracks, not rings
 float vf(vec2 p){
   vec2 q = p * vec2(0.16, 0.42) + vec2(7.0, 1.0);
@@ -100,11 +103,13 @@ float vf(vec2 p){
   return vnoise(q * 1.3) + 0.35 * vnoise(q * 4.1 + 2.);
 }
 float carveM(vec2 p){
-  float m = 0.;
+  float m = 0.; fTr = 0.;
   for (int i = 0; i < 3; i++) {
     float dy = p.y - uLineY[i];
     if (abs(dy) < ${(STRIP / 2).toFixed(2)} && abs(p.x) < uPanelW * 0.5)
-      m = texture2D(uCarve, vec2((p.x + uPanelW * 0.5) / uPanelW, (float(i) + (dy + ${(STRIP / 2).toFixed(2)}) / ${STRIP.toFixed(2)}) / 3.)).r;
+      { m = texture2D(uCarve, vec2((p.x + uPanelW * 0.5) / uPanelW, (float(i) + (dy + ${(STRIP / 2).toFixed(2)}) / ${STRIP.toFixed(2)}) / 3.)).r;
+        // traced left to right as the line's trigger plays
+        fTr = smoothstep(-0.06, 0.0, uTrace[i] * 1.12 - 0.06 - (p.x + uPanelW * 0.5) / uPanelW); }
   }
   return m;
 }
@@ -161,6 +166,7 @@ export async function makeStrata(o = {}) {
     uVein: { value: o.vein ?? 0 }, uCarveGlow: { value: o.carveGlow ?? 0 }, uPanelW: { value: PANEL_W },
     uGraph: { value: col('graphite') }, uStoneC: { value: col('stone', 0.82) }, uGoldC: { value: col('gold') }, uHot: { value: col('hot') },
     uDress: { value: col('stone', 0.95) },
+    uFront: { value: 1000 }, uTrace: { value: new THREE.Vector3(1, 1, 1) },
   };
   const mat = detailMat({ color: 0xffffff, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 }, {
     uniforms: U, pars: STRATA_PARS, height: 'strataH()', vary: 0.18, bump: o.bump ?? 0.03, bloomPart: true,
@@ -174,7 +180,7 @@ export async function makeStrata(o = {}) {
       base = mix(base, uGoldC, max(fV, fMa));
       diffuseColor.rgb = base;`,
     rough: `roughnessFactor = mix(roughnessFactor, 0.72, fD); roughnessFactor = mix(roughnessFactor, 0.3, max(fV, fMa)); metalnessFactor = max(fV, fMa);`,
-    emis: `{ vec3 e = uHot * (fVc * uVein * 1.3 + fMa * uCarveGlow * 0.55); totalEmissiveRadiance += e; bloomE += e; }`,
+    emis: `{ vec3 e = uHot * (fVc * uVein * 1.3 * smoothstep(uFront + 1.5, uFront - 1.5, wp.y) + fMa * uCarveGlow * 0.55 * fTr); totalEmissiveRadiance += e; bloomE += e; }`,
   });
   const cliff = new THREE.Mesh(cliffGeometry(o), mat);
   cliff.receiveShadow = true; cliff.castShadow = false;

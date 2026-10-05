@@ -83,7 +83,10 @@ for (const a of man.assets) {
   await io.write(t1, doc);
   // 2. Draco, then 3. KTX2 by slot (the CLI keeps extras, so the material recipes ride through)
   run(BIN('gltf-transform'), ['draco', t1, t2, '--method', 'edgebreaker', '--quantize-position', '14', '--quantize-normal', '10', '--quantize-texcoord', '12']);
-  run(BIN('gltf-transform'), ['etc1s', t2, t3, '--slots', '{baseColorTexture,emissiveTexture}']);
+  // colour textures that carry printed text (named text_* in the kits) go UASTC first; the ETC1S pass skips KTX2 already done
+  const tt = join(TMP, `${a.id}.2t.glb`);
+  run(BIN('gltf-transform'), ['uastc', t2, tt, '--pattern', 'text_*', '--level', '2', '--zstd', '18']);
+  run(BIN('gltf-transform'), ['etc1s', tt, t3, '--slots', '{baseColorTexture,emissiveTexture}']);
   run(BIN('gltf-transform'), ['uastc', t3, dst, '--slots', '{normalTexture,occlusionTexture,metallicRoughnessTexture}', '--level', '2', '--zstd', '18']);
   // 4. what shipped
   const bytes = await readFile(dst);

@@ -424,6 +424,7 @@ export async function makeFaultBuilding(o = {}) {
   if (state === 'repaired') {
     const card = await shareCardCanvas();
     const ct = canvasTex(card.color, true), ht = canvasTex(card.hi, false);
+    ct.name = 'text_card';   // G7 review: printed text, packed UASTC so ETC1S blocks do not soften the glyphs (tools/pack.mjs)
     const cardMat = detailMat({ color: 0xffffff, map: ct, roughness: 0.85, emissive: col('paper'), emissiveMap: ct, emissiveIntensity: o.cardGlow ?? 0.22 }, {
       uniforms: { uHi: { value: ht }, uHot: { value: col('hot') }, uHiS: { value: o.hiGlow ?? 0.9 } },
       pars: 'uniform sampler2D uHi; uniform vec3 uHot; uniform float uHiS;', scale: 40, vary: 0.02, bump: 0.001, bloomPart: true,
